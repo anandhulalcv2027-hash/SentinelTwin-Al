@@ -36,6 +36,14 @@ class RefreshTokenRequest(BaseModel):
 class LogoutRequest(BaseModel):
     refresh_token: str | None = Field(default=None, min_length=32)
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=32)
+    new_password: str = Field(min_length=8)
+
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -51,3 +59,4 @@ class UserResponse(BaseModel):
     last_name: str
 
     is_active: bool
+

@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
 from app.models.organization import Organization
+from app.models.password_reset_token import PasswordResetToken
 from app.models.permission import Permission
 from app.models.refresh_token import RefreshToken
 from app.models.role import Role
@@ -19,7 +22,9 @@ class UserRepository:
         email: str,
     ):
         return db.scalar(
-            select(User).where(User.email == email)
+            select(User).where(
+                User.email == email
+            )
         )
 
     @staticmethod
@@ -28,7 +33,9 @@ class UserRepository:
         username: str,
     ):
         return db.scalar(
-            select(User).where(User.username == username)
+            select(User).where(
+                User.username == username
+            )
         )
 
     @staticmethod
@@ -89,6 +96,7 @@ class UserRepository:
                 User.email == email
             )
         )
+
     @staticmethod
     def get_user_by_id(
         db: Session,
@@ -108,8 +116,13 @@ class UserRepository:
         return list(
             db.scalars(
                 select(Role.name)
-                .join(UserRole, UserRole.role_id == Role.id)
-                .where(UserRole.user_id == user_id)
+                .join(
+                    UserRole,
+                    UserRole.role_id == Role.id,
+                )
+                .where(
+                    UserRole.user_id == user_id
+                )
             ).all()
         )
 
@@ -121,13 +134,20 @@ class UserRepository:
     ) -> bool:
         permission = db.scalar(
             select(Permission.id)
-            .join(RolePermission, RolePermission.permission_id == Permission.id)
-            .join(UserRole, UserRole.role_id == RolePermission.role_id)
+            .join(
+                RolePermission,
+                RolePermission.permission_id == Permission.id,
+            )
+            .join(
+                UserRole,
+                UserRole.role_id == RolePermission.role_id,
+            )
             .where(
                 UserRole.user_id == user_id,
                 Permission.name == permission_name,
             )
         )
+
         return permission is not None
 
     @staticmethod
@@ -151,6 +171,26 @@ class UserRepository:
         )
 
     @staticmethod
+    def create_password_reset_token(
+        db: Session,
+        reset_token: PasswordResetToken,
+    ) -> PasswordResetToken:
+        db.add(reset_token)
+        db.flush()
+        return reset_token
+
+    @staticmethod
+    def get_password_reset_token_by_hash(
+        db: Session,
+        token_hash: str,
+    ) -> PasswordResetToken | None:
+        return db.scalar(
+            select(PasswordResetToken).where(
+                PasswordResetToken.token_hash == token_hash
+            )
+        )
+
+    @staticmethod
     def create_audit_log(
         db: Session,
         audit_log: AuditLog,
@@ -158,3 +198,38 @@ class UserRepository:
         db.add(audit_log)
         db.flush()
         return audit_log
+
+    @staticmethod
+    def revoke_all_refresh_tokens(
+        db: Session,
+        user_id,
+    ):
+        tokens = db.scalars(
+            select(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        ).all()
+
+        for token in tokens:
+            token.revoked_at = datetime.utcnow()
+
+        return tokens
+
+
+    @staticmethod
+    def revoke_all_refresh_tokens(
+        db: Session,
+        user_id,
+    ):
+        tokens = db.scalars(
+            select(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        ).all()
+
+        for token in tokens:
+            token.revoked_at = datetime.utcnow()
+
+        return tokens

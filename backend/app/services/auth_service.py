@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+import hashlib
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -9,12 +10,23 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.models.user_role import UserRole
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.security.hashing import hash_password, verify_password
 from app.security.jwt import (
     create_access_token,
     create_refresh_token,
     hash_refresh_token,
+)
+from app.models.password_reset_token import PasswordResetToken
+from app.security.password_reset import (
+    generate_reset_token,
+    hash_reset_token,
 )
 
 
@@ -275,3 +287,116 @@ class AuthService:
             user_agent=user_agent,
         )
         db.commit()
+    @staticmethod
+    def forgot_password(
+        db: Session,
+        request: ForgotPasswordRequest,
+    ) -> str:
+
+        user = UserRepository.get_user_by_email(
+            db,
+            request.email,
+        )
+
+        # Do not reveal whether the email exists.
+        if user is None:
+            return (
+                "If an account exists with this email, "
+                "a password reset link has been sent."
+            )
+
+        raw_token = generate_reset_token()
+
+        token_hash = hash_reset_token(
+            raw_token
+        )
+
+        expires_at = (
+            datetime.now(timezone.utc)
+            + timedelta(minutes=30)
+        )
+
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+
+        UserRepository.create_password_reset_token(
+            db,
+            reset_token,
+        )
+
+        db.commit()
+
+        # Development only.
+        # Later this will be replaced by email delivery.
+        return raw_token
+
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        request: ResetPasswordRequest,
+    ) -> str:
+
+        token_hash = hash_reset_token(
+            request.token
+        )
+
+        reset_token = (
+            UserRepository.get_password_reset_token_by_hash(
+                db,
+                token_hash,
+            )
+        )
+
+        if reset_token is None:
+            raise ValueError(
+                "Invalid or expired password reset token."
+            )
+
+        now = datetime.now(timezone.utc)
+
+        if reset_token.used_at is not None:
+            raise ValueError(
+                "Invalid or expired password reset token."
+            )
+
+        if reset_token.expires_at <= now:
+            raise ValueError(
+                "Invalid or expired password reset token."
+            )
+
+        user = UserRepository.get_user_by_id(
+            db,
+            str(reset_token.user_id),
+        )
+
+        if user is None:
+            raise ValueError(
+                "Invalid or expired password reset token."
+            )
+
+        if not user.is_active:
+            raise ValueError(
+                "User account is inactive."
+            )
+
+        # Update password
+        user.password_hash = hash_password(
+            request.new_password
+        )
+
+        # Consume reset token
+        reset_token.used_at = now
+
+        # Revoke all existing refresh tokens
+        UserRepository.revoke_all_refresh_tokens(
+            db,
+            user.id,
+        )
+
+        db.commit()
+
+        return "Password reset successfully."

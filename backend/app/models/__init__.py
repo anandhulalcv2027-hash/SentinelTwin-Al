@@ -7,3 +7,4 @@ from .employee import Employee
 from app.models.role_permission import RolePermission
 from app.models.refresh_token import RefreshToken
 from app.models.audit_log import AuditLog
+from app.models.password_reset_token import PasswordResetToken

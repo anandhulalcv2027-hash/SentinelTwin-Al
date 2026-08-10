@@ -1,17 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+
 from app.db.session import get_db
+
 from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     LogoutRequest,
     RefreshTokenRequest,
     TokenResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
+
 from app.services.auth_service import AuthService
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.user import UserResponse
+
 
 router = APIRouter(
     prefix="/auth",
@@ -32,7 +38,11 @@ def register(
         return AuthService.register(
             db=db,
             request=request,
-            ip_address=http_request.client.host if http_request.client else None,
+            ip_address=(
+                http_request.client.host
+                if http_request.client
+                else None
+            ),
             user_agent=http_request.headers.get("user-agent"),
         )
 
@@ -41,6 +51,8 @@ def register(
             status_code=400,
             detail=str(e),
         )
+
+
 @router.post(
     "/login",
     response_model=TokenResponse,
@@ -50,22 +62,40 @@ async def login(
     db: Session = Depends(get_db),
 ):
     try:
-        content_type = http_request.headers.get("content-type", "")
+        content_type = http_request.headers.get(
+            "content-type",
+            "",
+        )
+
         if "application/json" in content_type:
             payload = await http_request.json()
-            request = LoginRequest(**payload)
+
+            request = LoginRequest(
+                **payload
+            )
+
         else:
             form_data = await http_request.form()
+
             request = LoginRequest(
-                email=form_data.get("username") or form_data.get("email"),
+                email=(
+                    form_data.get("username")
+                    or form_data.get("email")
+                ),
                 password=form_data.get("password"),
             )
 
         return AuthService.login(
             db,
             request,
-            ip_address=http_request.client.host if http_request.client else None,
-            user_agent=http_request.headers.get("user-agent"),
+            ip_address=(
+                http_request.client.host
+                if http_request.client
+                else None
+            ),
+            user_agent=http_request.headers.get(
+                "user-agent"
+            ),
         )
 
     except ValueError as e:
@@ -88,9 +118,16 @@ def refresh(
         return AuthService.refresh(
             db,
             request.refresh_token,
-            ip_address=http_request.client.host if http_request.client else None,
-            user_agent=http_request.headers.get("user-agent"),
+            ip_address=(
+                http_request.client.host
+                if http_request.client
+                else None
+            ),
+            user_agent=http_request.headers.get(
+                "user-agent"
+            ),
         )
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,9 +149,16 @@ def logout(
         db,
         request.refresh_token,
         current_user,
-        ip_address=http_request.client.host if http_request.client else None,
-        user_agent=http_request.headers.get("user-agent"),
+        ip_address=(
+            http_request.client.host
+            if http_request.client
+            else None
+        ),
+        user_agent=http_request.headers.get(
+            "user-agent"
+        ),
     )
+
     return None
 
 
@@ -125,4 +169,33 @@ def logout(
 def me(
     current_user: User = Depends(get_current_user),
 ):
-    return current_user        
+    return current_user
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    return AuthService.forgot_password(
+        db,
+        request,
+    )
+
+
+@router.post("/reset-password")
+def reset_password(
+    request: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return AuthService.reset_password(
+            db,
+            request,
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
