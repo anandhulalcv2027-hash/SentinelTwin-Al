@@ -36,30 +36,39 @@ def seed_permissions(db: Session):
 
 
 def seed_admin_permissions(db: Session):
-    admin = db.scalar(
-        select(Role).where(Role.name == "Admin")
-    )
-
     permissions = db.scalars(
         select(Permission)
     ).all()
 
-    for permission in permissions:
-
-        exists = db.scalar(
-            select(RolePermission).where(
-                RolePermission.role_id == admin.id,
-                RolePermission.permission_id == permission.id,
+    admin_roles = db.scalars(
+        select(Role).where(
+            Role.name.in_(
+                [
+                    "System Administrator",
+                    "Organization Administrator",
+                    "Admin",
+                ]
             )
         )
+    ).all()
 
-        if exists is None:
-            db.add(
-                RolePermission(
-                    role_id=admin.id,
-                    permission_id=permission.id,
+    for admin in admin_roles:
+        for permission in permissions:
+
+            exists = db.scalar(
+                select(RolePermission).where(
+                    RolePermission.role_id == admin.id,
+                    RolePermission.permission_id == permission.id,
                 )
             )
+
+            if exists is None:
+                db.add(
+                    RolePermission(
+                        role_id=admin.id,
+                        permission_id=permission.id,
+                    )
+                )
 
     db.commit()
 

@@ -18,4 +18,18 @@ DEFAULT_PERMISSIONS = [
     Permission(name="device.read", description="View devices"),
     Permission(name="device.update", description="Update devices"),
     Permission(name="device.delete", description="Delete devices"),
+
+    # Authentication / sessions
+    Permission(name="auth.read", description="View authentication state"),
+
+    # Organizations
+    Permission(name="organization.read", description="View organizations"),
+    Permission(name="organization.update", description="Update organizations"),
+
+    # Audit logs
+    Permission(name="audit.read", description="View audit logs"),
+
+    # Digital twins
+    Permission(name="twin.read", description="View digital twins"),
+    Permission(name="twin.update", description="Update digital twins"),
 ]

@@ -24,7 +24,14 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    refresh_token_expire_days: int = Field(default=14, alias="REFRESH_TOKEN_EXPIRE_DAYS")
     algorithm: str = Field(alias="ALGORITHM")
+
+    # Frontend / local development
+    cors_origins: str = Field(
+        default="http://localhost:5173,http://localhost:5174",
+        alias="CORS_ORIGINS",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -41,6 +48,14 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}"
             f"/{self.postgres_db}"
         )
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

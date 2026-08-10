@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordRequestForm
 from app.db.session import get_db
 from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
+    LogoutRequest,
+    RefreshTokenRequest,
     TokenResponse,
 )
 from app.services.auth_service import AuthService
@@ -23,6 +24,7 @@ router = APIRouter(
     response_model=TokenResponse,
 )
 def register(
+    http_request: Request,
     request: RegisterRequest,
     db: Session = Depends(get_db),
 ):
@@ -30,6 +32,8 @@ def register(
         return AuthService.register(
             db=db,
             request=request,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
         )
 
     except ValueError as e:
@@ -41,19 +45,79 @@ def register(
     "/login",
     response_model=TokenResponse,
 )
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+async def login(
+    http_request: Request,
     db: Session = Depends(get_db),
 ):
-    request = LoginRequest(
-        email=form_data.username,
-        password=form_data.password,
-    )
+    try:
+        content_type = http_request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            payload = await http_request.json()
+            request = LoginRequest(**payload)
+        else:
+            form_data = await http_request.form()
+            request = LoginRequest(
+                email=form_data.get("username") or form_data.get("email"),
+                password=form_data.get("password"),
+            )
 
-    return AuthService.login(
+        return AuthService.login(
+            db,
+            request,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+)
+def refresh(
+    http_request: Request,
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return AuthService.refresh(
+            db,
+            request.refresh_token,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def logout(
+    http_request: Request,
+    request: LogoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    AuthService.logout(
         db,
-        request,
-    )      
+        request.refresh_token,
+        current_user,
+        ip_address=http_request.client.host if http_request.client else None,
+        user_agent=http_request.headers.get("user-agent"),
+    )
+    return None
+
+
 @router.get(
     "/me",
     response_model=UserResponse,

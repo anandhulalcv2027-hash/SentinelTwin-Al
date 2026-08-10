@@ -5,3 +5,5 @@ from .permission import Permission
 from .user_role import UserRole
 from .employee import Employee
 from app.models.role_permission import RolePermission
+from app.models.refresh_token import RefreshToken
+from app.models.audit_log import AuditLog
