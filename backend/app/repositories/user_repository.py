@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
+from app.models.email_verification_token import EmailVerificationToken
 from app.models.organization import Organization
 from app.models.password_reset_token import PasswordResetToken
 from app.models.permission import Permission
@@ -59,6 +60,17 @@ class UserRepository:
                 Role.name == role_name
             )
         )
+    
+    @staticmethod
+    def get_all_roles(
+        db: Session,
+    ) -> list[Role]:
+        return list(
+            db.scalars(
+                select(Role)
+                .order_by(Role.name.asc())
+            ).all()
+        )
 
     @staticmethod
     def create_organization(
@@ -108,6 +120,107 @@ class UserRepository:
             )
         )
 
+    # ------------------------------------------------------------------
+    # Organization-scoped user management
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_users_by_organization(
+        db: Session,
+        organization_id,
+    ) -> list[User]:
+        return list(
+            db.scalars(
+                select(User)
+                .where(
+                    User.organization_id == organization_id
+                )
+                .order_by(User.created_at.desc())
+            ).all()
+        )
+
+    @staticmethod
+    def get_user_by_id_in_organization(
+        db: Session,
+        user_id,
+        organization_id,
+    ) -> User | None:
+        return db.scalar(
+            select(User).where(
+                User.id == user_id,
+                User.organization_id == organization_id,
+            )
+        )
+
+    @staticmethod
+    def get_user_by_email_in_organization(
+        db: Session,
+        email: str,
+        organization_id,
+    ) -> User | None:
+        return db.scalar(
+            select(User).where(
+                User.email == email,
+                User.organization_id == organization_id,
+            )
+        )
+
+    @staticmethod
+    def get_user_by_username_in_organization(
+        db: Session,
+        username: str,
+        organization_id,
+    ) -> User | None:
+        return db.scalar(
+            select(User).where(
+                User.username == username,
+                User.organization_id == organization_id,
+            )
+        )
+
+    @staticmethod
+    def get_role_by_id(
+        db: Session,
+        role_id,
+    ) -> Role | None:
+        return db.scalar(
+            select(Role).where(
+                Role.id == role_id
+            )
+        )
+
+    @staticmethod
+    def get_user_role(
+        db: Session,
+        user_id,
+    ) -> UserRole | None:
+        return db.scalar(
+            select(UserRole).where(
+                UserRole.user_id == user_id
+            )
+        )
+
+    @staticmethod
+    def update_user(
+        db: Session,
+        user: User,
+    ) -> User:
+        db.add(user)
+        db.flush()
+        return user
+
+    @staticmethod
+    def remove_user_role(
+        db: Session,
+        user_role: UserRole,
+    ) -> None:
+        db.delete(user_role)
+        db.flush()
+
+    # ------------------------------------------------------------------
+    # RBAC
+    # ------------------------------------------------------------------
+
     @staticmethod
     def get_user_role_names(
         db: Session,
@@ -150,6 +263,10 @@ class UserRepository:
 
         return permission is not None
 
+    # ------------------------------------------------------------------
+    # Refresh tokens
+    # ------------------------------------------------------------------
+
     @staticmethod
     def create_refresh_token(
         db: Session,
@@ -170,6 +287,10 @@ class UserRepository:
             )
         )
 
+    # ------------------------------------------------------------------
+    # Password reset
+    # ------------------------------------------------------------------
+
     @staticmethod
     def create_password_reset_token(
         db: Session,
@@ -189,6 +310,10 @@ class UserRepository:
                 PasswordResetToken.token_hash == token_hash
             )
         )
+
+    # ------------------------------------------------------------------
+    # Audit logs
+    # ------------------------------------------------------------------
 
     @staticmethod
     def create_audit_log(
@@ -216,20 +341,26 @@ class UserRepository:
 
         return tokens
 
+    # ------------------------------------------------------------------
+    # Email verification
+    # ------------------------------------------------------------------
 
     @staticmethod
-    def revoke_all_refresh_tokens(
+    def create_email_verification_token(
         db: Session,
-        user_id,
-    ):
-        tokens = db.scalars(
-            select(RefreshToken).where(
-                RefreshToken.user_id == user_id,
-                RefreshToken.revoked_at.is_(None),
+        verification_token: EmailVerificationToken,
+    ) -> EmailVerificationToken:
+        db.add(verification_token)
+        db.flush()
+        return verification_token
+
+    @staticmethod
+    def get_email_verification_token_by_hash(
+        db: Session,
+        token_hash: str,
+    ) -> EmailVerificationToken | None:
+        return db.scalar(
+            select(EmailVerificationToken).where(
+                EmailVerificationToken.token_hash == token_hash
             )
-        ).all()
-
-        for token in tokens:
-            token.revoked_at = datetime.utcnow()
-
-        return tokens
+        )

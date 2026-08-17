@@ -1,18 +1,30 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import {
+  Shield,
+  Eye,
+  EyeOff,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/lib/AuthContext';
 
 export function LoginPage() {
-  const { token, isLoading: authLoading, login } = useAuth();
+  const {
+    token,
+    isLoading: authLoading,
+    login,
+    googleLogin,
+  } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [showPwd, setShowPwd]     = useState(false);
-  const [remember, setRemember]   = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [apiError, setApiError]   = useState('');
+  const [apiError, setApiError] = useState('');
 
   // Field-level validation errors
   const [errors, setErrors] = useState({ email: '', password: '' });
@@ -44,6 +56,31 @@ export function LoginPage() {
     } catch (err) {
       setApiError(
         err instanceof Error ? err.message : 'Login failed. Please try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleSuccess(credentialResponse: {
+    credential?: string;
+  }) {
+    if (!credentialResponse.credential) {
+      setApiError('Google sign-in failed. No credential was received.');
+      return;
+    }
+
+    setApiError('');
+    setSubmitting(true);
+
+    try {
+      await googleLogin(credentialResponse.credential);
+      navigate('/app', { replace: true });
+    } catch (err) {
+      setApiError(
+        err instanceof Error
+          ? err.message
+          : 'Google sign-in failed. Please try again.',
       );
     } finally {
       setSubmitting(false);
@@ -140,7 +177,21 @@ export function LoginPage() {
 
           {/* Password */}
           <div>
-            <label htmlFor="login-password" className="st-label">Password</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+              <label htmlFor="login-password" className="st-label" style={{ margin: 0 }}>Password</label>
+              <Link
+                to="/forgot-password"
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--color-accent)',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  lineHeight: 1,
+                }}
+              >
+                Forgot password?
+              </Link>
+            </div>
             <div style={{ position: 'relative' }}>
               <input
                 id="login-password"
@@ -211,6 +262,53 @@ export function LoginPage() {
             )}
           </button>
         </form>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            margin: '1.25rem 0',
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: 'var(--color-border)',
+            }}
+          />
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            OR
+          </span>
+          <div
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: 'var(--color-border)',
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => {
+              setApiError('Google sign-in failed. Please try again.');
+            }}
+            useOneTap={false}
+            width="100%"
+          />
+        </div>
       </div>
 
       {/* Register link */}

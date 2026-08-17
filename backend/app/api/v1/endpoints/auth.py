@@ -11,6 +11,9 @@ from app.schemas.auth import (
     TokenResponse,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    ChangePasswordRequest,
+    VerifyEmailRequest,
+    GoogleSignInRequest,
 )
 
 from app.services.auth_service import AuthService
@@ -106,6 +109,34 @@ async def login(
 
 
 @router.post(
+    "/google",
+    response_model=TokenResponse,
+)
+def google_login(
+    http_request: Request,
+    request: GoogleSignInRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return AuthService.google_login(
+            db=db,
+            credential=request.credential,
+            ip_address=(
+                http_request.client.host
+                if http_request.client
+                else None
+            ),
+            user_agent=http_request.headers.get("user-agent"),
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+
+@router.post(
     "/refresh",
     response_model=TokenResponse,
 )
@@ -183,6 +214,23 @@ def forgot_password(
     )
 
 
+@router.post("/verify-email")
+def verify_email(
+    request: VerifyEmailRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        return AuthService.verify_email(
+            db,
+            request,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
 @router.post("/reset-password")
 def reset_password(
     request: ResetPasswordRequest,
@@ -191,6 +239,25 @@ def reset_password(
     try:
         return AuthService.reset_password(
             db,
+            request,
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+@router.post("/change-password")
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return AuthService.change_password(
+            db,
+            current_user,
             request,
         )
 

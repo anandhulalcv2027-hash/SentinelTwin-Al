@@ -8,3 +8,7 @@ from app.models.role_permission import RolePermission
 from app.models.refresh_token import RefreshToken
 from app.models.audit_log import AuditLog
 from app.models.password_reset_token import PasswordResetToken
+from app.models.email_verification_token import EmailVerificationToken
+from .device import Device
+from app.models.device_telemetry import DeviceTelemetry
+from app.models.alert import Alert

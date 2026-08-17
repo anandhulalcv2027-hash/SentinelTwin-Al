@@ -1,5 +1,7 @@
-import hashlib
 from datetime import datetime, timedelta, timezone
+
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 
 from sqlalchemy.orm import Session
 
@@ -11,11 +13,13 @@ from app.models.user import User
 from app.models.user_role import UserRole
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
-    ForgotPasswordRequest,
-    LoginRequest,
     RegisterRequest,
-    ResetPasswordRequest,
+    LoginRequest,
     TokenResponse,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    ChangePasswordRequest,
+    VerifyEmailRequest,
 )
 from app.security.hashing import hash_password, verify_password
 from app.security.jwt import (
@@ -28,6 +32,12 @@ from app.security.password_reset import (
     generate_reset_token,
     hash_reset_token,
 )
+from app.models.email_verification_token import EmailVerificationToken
+from app.security.email_verification import (
+    generate_verification_token,
+    hash_verification_token,
+)
+from app.services.email_service import EmailService
 
 
 class AuthService:
@@ -54,6 +64,7 @@ class AuthService:
         )
 
         refresh_token = create_refresh_token()
+
         UserRepository.create_refresh_token(
             db,
             RefreshToken(
@@ -124,6 +135,7 @@ class AuthService:
             db,
             "Organization Administrator",
         )
+
         if admin_role is None:
             admin_role = UserRepository.get_role_by_name(
                 db,
@@ -138,7 +150,11 @@ class AuthService:
             slug=request.organization_slug,
             email=request.email,
         )
-        UserRepository.create_organization(db, organization)
+
+        UserRepository.create_organization(
+            db,
+            organization,
+        )
 
         user = User(
             organization_id=organization.id,
@@ -147,8 +163,13 @@ class AuthService:
             password_hash=hash_password(request.password),
             first_name=request.first_name,
             last_name=request.last_name,
+            email_verified=False,
         )
-        UserRepository.create_user(db, user)
+
+        UserRepository.create_user(
+            db,
+            user,
+        )
 
         UserRepository.assign_role(
             db,
@@ -158,12 +179,43 @@ class AuthService:
             ),
         )
 
+        # Create email verification token.
+        raw_verification_token = generate_verification_token()
+
+        verification_token = EmailVerificationToken(
+            user_id=user.id,
+            token_hash=hash_verification_token(
+                raw_verification_token
+            ),
+            expires_at=(
+                datetime.utcnow()
+                + timedelta(minutes=30)
+            ),
+        )
+
+        UserRepository.create_email_verification_token(
+            db,
+            verification_token,
+        )
+
+        # Send the verification link to the user's real email address.
+        verification_url = (
+            f"{settings.frontend_url}/verify-email"
+            f"?token={raw_verification_token}"
+        )
+
+        EmailService.send_verification_email(
+            to=user.email,
+            verification_url=verification_url,
+        )
+
         token_response = AuthService._create_token_pair(
             db,
             user,
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
         AuthService._audit(
             db,
             "auth.register",
@@ -171,9 +223,77 @@ class AuthService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
         db.commit()
 
         return token_response
+
+    @staticmethod
+    def verify_email(
+        db: Session,
+        request: VerifyEmailRequest,
+    ) -> str:
+
+        token_hash = hash_verification_token(
+            request.token
+        )
+
+        verification_token = (
+            UserRepository.get_email_verification_token_by_hash(
+                db,
+                token_hash,
+            )
+        )
+
+        if verification_token is None:
+            raise ValueError(
+                "Invalid or expired email verification token."
+            )
+
+        now = datetime.utcnow()
+
+        if verification_token.used_at is not None:
+            raise ValueError(
+                "Invalid or expired email verification token."
+            )
+
+        if verification_token.expires_at <= now:
+            raise ValueError(
+                "Invalid or expired email verification token."
+            )
+
+        user = UserRepository.get_user_by_id(
+            db,
+            str(verification_token.user_id),
+        )
+
+        if user is None:
+            raise ValueError(
+                "Invalid or expired email verification token."
+            )
+
+        if not user.is_active:
+            raise ValueError(
+                "User account is inactive."
+            )
+
+        if user.email_verified:
+            raise ValueError(
+                "Email is already verified."
+            )
+
+        user.email_verified = True
+        verification_token.used_at = now
+
+        AuthService._audit(
+            db,
+            "auth.email_verified",
+            user=user,
+        )
+
+        db.commit()
+
+        return "Email verified successfully."
 
     @staticmethod
     def login(
@@ -201,12 +321,14 @@ class AuthService:
             raise ValueError("Invalid email or password.")
 
         user.last_login = datetime.utcnow()
+
         token_response = AuthService._create_token_pair(
             db,
             user,
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
         AuthService._audit(
             db,
             "auth.login",
@@ -214,6 +336,84 @@ class AuthService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
+        db.commit()
+
+        return token_response
+
+    @staticmethod
+    def google_login(
+        db: Session,
+        credential: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> TokenResponse:
+
+        try:
+            google_user = id_token.verify_oauth2_token(
+                credential,
+                google_requests.Request(),
+                settings.google_client_id,
+            )
+        except ValueError:
+            raise ValueError("Invalid Google credential.")
+
+        if google_user.get("iss") not in (
+            "accounts.google.com",
+            "https://accounts.google.com",
+        ):
+            raise ValueError("Invalid Google credential.")
+
+        google_email = google_user.get("email")
+
+        if not google_email:
+            raise ValueError(
+                "Google account does not provide an email address."
+            )
+
+        if not google_user.get("email_verified", False):
+            raise ValueError(
+                "Your Google email address is not verified."
+            )
+
+        # Google Sign-In is only for existing SentinelTwin accounts.
+        user = UserRepository.get_user_by_email(
+            db,
+            google_email,
+        )
+
+        if user is None:
+            raise ValueError(
+                "No SentinelTwin account exists with this Google email. "
+                "Please register first."
+            )
+
+        if not user.is_active:
+            raise ValueError("User account is inactive.")
+
+        if not user.email_verified:
+            user.email_verified = True
+
+        user.last_login = datetime.utcnow()
+
+        token_response = AuthService._create_token_pair(
+            db,
+            user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
+        AuthService._audit(
+            db,
+            "auth.google_login",
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details={
+                "provider": "google",
+            },
+        )
+
         db.commit()
 
         return token_response
@@ -225,6 +425,7 @@ class AuthService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> TokenResponse:
+
         stored_token = UserRepository.get_refresh_token_by_hash(
             db,
             hash_refresh_token(refresh_token),
@@ -246,12 +447,14 @@ class AuthService:
             raise ValueError("Invalid refresh token.")
 
         stored_token.revoked_at = datetime.utcnow()
+
         token_response = AuthService._create_token_pair(
             db,
             user,
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
         AuthService._audit(
             db,
             "auth.refresh",
@@ -259,6 +462,7 @@ class AuthService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
         db.commit()
 
         return token_response
@@ -271,12 +475,17 @@ class AuthService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
+
         if refresh_token:
             stored_token = UserRepository.get_refresh_token_by_hash(
                 db,
                 hash_refresh_token(refresh_token),
             )
-            if stored_token is not None and stored_token.user_id == user.id:
+
+            if (
+                stored_token is not None
+                and stored_token.user_id == user.id
+            ):
                 stored_token.revoked_at = datetime.utcnow()
 
         AuthService._audit(
@@ -286,7 +495,9 @@ class AuthService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
+
         db.commit()
+
     @staticmethod
     def forgot_password(
         db: Session,
@@ -327,12 +538,22 @@ class AuthService:
             reset_token,
         )
 
+        reset_url = (
+            f"{settings.frontend_url}/reset-password"
+            f"?token={raw_token}"
+        )
+
+        EmailService.send_password_reset_email(
+            to=user.email,
+            reset_url=reset_url,
+        )
+
         db.commit()
 
-        # Development only.
-        # Later this will be replaced by email delivery.
-        return raw_token
-
+        return (
+            "If an account exists with this email, "
+            "a password reset link has been sent."
+        )
 
     @staticmethod
     def reset_password(
@@ -383,20 +604,61 @@ class AuthService:
                 "User account is inactive."
             )
 
-        # Update password
         user.password_hash = hash_password(
             request.new_password
         )
 
-        # Consume reset token
         reset_token.used_at = now
 
-        # Revoke all existing refresh tokens
         UserRepository.revoke_all_refresh_tokens(
             db,
             user.id,
         )
 
+        EmailService.send_password_changed_email(
+            to=user.email,
+        )
+
         db.commit()
 
         return "Password reset successfully."
+
+    @staticmethod
+    def change_password(
+        db: Session,
+        user: User,
+        request: ChangePasswordRequest,
+    ) -> str:
+
+        if not verify_password(
+            request.current_password,
+            user.password_hash,
+        ):
+            raise ValueError(
+                "Current password is incorrect."
+            )
+
+        if verify_password(
+            request.new_password,
+            user.password_hash,
+        ):
+            raise ValueError(
+                "New password must be different from the current password."
+            )
+
+        user.password_hash = hash_password(
+            request.new_password
+        )
+
+        UserRepository.revoke_all_refresh_tokens(
+            db,
+            user.id,
+        )
+
+        EmailService.send_password_changed_email(
+            to=user.email,
+        )
+
+        db.commit()
+
+        return "Password changed successfully."

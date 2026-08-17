@@ -44,6 +44,10 @@ class ResetPasswordRequest(BaseModel):
     token: str = Field(min_length=32)
     new_password: str = Field(min_length=8)
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=8)
+
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -60,3 +64,12 @@ class UserResponse(BaseModel):
 
     is_active: bool
 
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=32)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+class GoogleSignInRequest(BaseModel):
+    credential: str = Field(min_length=20)

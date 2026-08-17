@@ -6,6 +6,12 @@ import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { AppHomePage } from '@/pages/AppHomePage';
+import { EndpointsPage } from '@/pages/EndpointsPage';
+import { UsersPage } from '@/pages/UsersPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
+import { AlertsPage } from '@/pages/AlertsPage';
 
 export function App() {
   return (
@@ -16,15 +22,22 @@ export function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route
+            path="/verify-email"
+            element={<VerifyEmailPage />}
+          />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/app" element={<AppHomePage />} />
               {/* Placeholder routes for sidebar links */}
-              <Route path="/app/endpoints" element={<PlaceholderPage title="Endpoints" />} />
-              <Route path="/app/alerts"    element={<PlaceholderPage title="Alerts" />} />
-              <Route path="/app/settings"  element={<PlaceholderPage title="Settings" />} />
+              <Route path="/app/endpoints" element={<EndpointsPage />} />
+              <Route path="/app/users" element={<UsersPage />} />
+              <Route path="/app/alerts" element={<AlertsPage />} />
+              <Route path="/app/settings" element={<PlaceholderPage title="Settings" />} />
             </Route>
           </Route>
 

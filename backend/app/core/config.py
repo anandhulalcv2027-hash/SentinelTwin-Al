@@ -23,9 +23,35 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = Field(alias="SECRET_KEY")
-    access_token_expire_minutes: int = Field(alias="ACCESS_TOKEN_EXPIRE_MINUTES")
-    refresh_token_expire_days: int = Field(default=14, alias="REFRESH_TOKEN_EXPIRE_DAYS")
+    access_token_expire_minutes: int = Field(
+        alias="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
+    refresh_token_expire_days: int = Field(
+        default=14,
+        alias="REFRESH_TOKEN_EXPIRE_DAYS",
+    )
     algorithm: str = Field(alias="ALGORITHM")
+
+    # Google Sign-In
+    google_client_id: str = Field(alias="GOOGLE_CLIENT_ID")
+
+    # Email — MailerSend
+    mailersend_api_key: str = Field(alias="MAILERSEND_API_KEY")
+
+    mailersend_from_email: str = Field(
+        alias="MAILERSEND_FROM_EMAIL"
+    )
+
+    mailersend_from_name: str = Field(
+        default="SentinelTwin AI",
+        alias="MAILERSEND_FROM_NAME",
+    )
+
+    # Frontend
+    frontend_url: str = Field(
+        default="http://localhost:5173",
+        alias="FRONTEND_URL",
+    )
 
     # Frontend / local development
     cors_origins: str = Field(

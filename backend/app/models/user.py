@@ -61,6 +61,12 @@ class User(Base, TimestampMixin):
         nullable=False,
     )
 
+    email_verified: Mapped[bool] = mapped_column(
+    Boolean,
+    default=False,
+    nullable=False,
+    )
+
     password_hash: Mapped[str] = mapped_column(
         Text,
         nullable=False,
@@ -98,6 +104,12 @@ class User(Base, TimestampMixin):
     )
     password_reset_tokens = relationship(
     "PasswordResetToken",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )
+
+    email_verification_tokens = relationship(
+    "EmailVerificationToken",
     back_populates="user",
     cascade="all, delete-orphan",
     )

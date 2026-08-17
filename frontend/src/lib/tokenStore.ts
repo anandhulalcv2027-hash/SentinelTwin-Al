@@ -1,27 +1,39 @@
-// Token storage — wraps localStorage so the rest of the codebase
-// doesn't import localStorage keys directly.
-const TOKEN_KEY = 'st_access_token';
+const ACCESS_TOKEN_KEY = 'st_access_token';
+const REFRESH_TOKEN_KEY = 'st_refresh_token';
 
 export const tokenStore = {
-  get(): string | null {
+  getAccessToken(): string | null {
     try {
-      return localStorage.getItem(TOKEN_KEY);
+      return localStorage.getItem(ACCESS_TOKEN_KEY);
     } catch {
       return null;
     }
   },
 
-  set(token: string): void {
+  getRefreshToken(): string | null {
     try {
-      localStorage.setItem(TOKEN_KEY, token);
+      return localStorage.getItem(REFRESH_TOKEN_KEY);
     } catch {
-      // storage may be unavailable (private mode, full quota)
+      return null;
+    }
+  },
+
+  setTokens(
+    accessToken: string,
+    refreshToken: string,
+  ): void {
+    try {
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    } catch {
+      // storage may be unavailable
     }
   },
 
   clear(): void {
     try {
-      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
     } catch {
       // ignore
     }

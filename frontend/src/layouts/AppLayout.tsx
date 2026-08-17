@@ -8,12 +8,14 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
 const NAV_ITEMS = [
   { label: 'Overview',  to: '/app',      icon: LayoutDashboard },
-  { label: 'Endpoints', to: '/app/endpoints', icon: Monitor },
+  { label: 'Devices',   to: '/app/endpoints', icon: Monitor },
+  { label: 'Users',     to: '/app/users',     icon: Users },
   { label: 'Alerts',    to: '/app/alerts',    icon: AlertTriangle },
   { label: 'Settings',  to: '/app/settings',  icon: Settings },
 ];

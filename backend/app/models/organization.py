@@ -56,3 +56,10 @@ class Organization(Base, TimestampMixin):
     "Employee",
     back_populates="organization",
     )
+    
+
+    devices = relationship(
+    "Device",
+    back_populates="organization",
+    cascade="all, delete-orphan",
+    )
