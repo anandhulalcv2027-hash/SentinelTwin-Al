@@ -6,6 +6,12 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { useState, useEffect, useMemo } from 'react';
+import { useTwinWebSocket } from '@/hooks/useTwinWebSocket';
+import { threatService, ThreatEvent } from '@/services/threatService';
+import { deviceService } from '@/services/deviceService';
+import type { Device, TwinData } from '@/types/device';
+import { DigitalTwinScene, TwinNode } from '@/components/three/DigitalTwinScene';
 
 // ─── Stat card data ───────────────────────────────────────────────────────────
 
@@ -48,24 +54,60 @@ const STATS = [
   },
 ];
 
-// ─── Mini network nodes ───────────────────────────────────────────────────────
-
-const MINI_NODES = [
-  { x: 130, y: 100, label: 'srv-prod-01',  status: 'healthy' },
-  { x: 260, y: 80,  label: 'ws-dev-07',    status: 'healthy' },
-  { x: 370, y: 120, label: 'iot-sensor-3', status: 'warn'    },
-  { x: 200, y: 200, label: 'db-replica-2', status: 'healthy' },
-  { x: 330, y: 200, label: 'edge-fw-01',   status: 'healthy' },
-];
-
-const STATUS_COLOR: Record<string, string> = {
-  healthy: 'var(--color-success)',
-  warn:    'var(--color-warn)',
-  danger:  'var(--color-danger)',
-};
 
 export function AppHomePage() {
   const { user } = useAuth();
+  const [recentThreats, setRecentThreats] = useState<ThreatEvent[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [twinDataMap, setTwinDataMap] = useState<Record<string, TwinData>>({});
+
+  useEffect(() => {
+    threatService.getRecentThreats(5).then(res => {
+      setRecentThreats(res.items);
+    }).catch(console.error);
+    
+    deviceService.getDevices().then(res => {
+      setDevices(res.items);
+      Promise.all(
+        res.items.map(d => deviceService.getDeviceTwin(d.id).catch(() => null))
+      ).then(results => {
+        const newMap: Record<string, TwinData> = {};
+        results.forEach(res => {
+          if (res) newMap[res.device_id] = res;
+        });
+        setTwinDataMap(prev => ({ ...prev, ...newMap }));
+      });
+    }).catch(console.error);
+  }, []);
+
+  useTwinWebSocket(null, undefined, (threat) => {
+    setRecentThreats(prev => [threat, ...prev].slice(0, 5));
+  }, (twin) => {
+    setTwinDataMap(prev => ({
+      ...prev,
+      [twin.device_id]: twin,
+    }));
+  });
+
+  const twinNodes = useMemo<TwinNode[]>(() => {
+    return devices.map((d) => {
+      const twin = twinDataMap[d.id];
+      let status: TwinNode['status'] = 'dim';
+      if (twin) {
+        if (twin.health_status === 'healthy') {
+          status = 'healthy';
+        } else if (
+          twin.health_status === 'warning' ||
+          twin.health_status === 'critical'
+        ) {
+          status = 'anomaly';
+        } else if (twin.health_status === 'offline') {
+          status = 'dim';
+        }
+      }
+      return { id: d.id, status };
+    });
+  }, [devices, twinDataMap]);
 
   return (
     <div style={{ padding: '2rem', maxWidth: 1100, margin: '0 auto' }}>
@@ -151,85 +193,32 @@ export function AppHomePage() {
           </div>
         </div>
 
-        {/* Mini SVG network diagram */}
+        {/* Mini 3D network diagram */}
         <div
           style={{
             backgroundColor: 'var(--color-bg-base)',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--color-border)',
             overflow: 'hidden',
+            height: 260,
+            position: 'relative'
           }}
         >
-          <svg
-            viewBox="0 0 500 280"
-            width="100%"
-            height={260}
-            aria-label="Static network topology overview"
-            role="img"
-          >
-            {/* Hub */}
-            <circle cx="50" cy="150" r="22" fill="#06b6d4" opacity="0.9" />
-            <circle cx="50" cy="150" r="32" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.3" />
-            <text x="50" y="185" textAnchor="middle" fill="#8b949e" fontSize="8">Hub</text>
-
-            {/* Connections from hub to nodes */}
-            {MINI_NODES.map((n) => (
-              <line
-                key={n.label}
-                x1="50" y1="150"
-                x2={n.x} y2={n.y}
-                stroke={STATUS_COLOR[n.status]}
-                strokeWidth="0.8"
-                opacity="0.35"
-              />
-            ))}
-
-            {/* Nodes */}
-            {MINI_NODES.map((n) => {
-              const c = STATUS_COLOR[n.status];
-              return (
-                <g key={n.label}>
-                  <circle cx={n.x} cy={n.y} r="14" fill={`${c}22`} stroke={c} strokeWidth="1.2" />
-                  {n.status === 'warn' && (
-                    <circle cx={n.x} cy={n.y} r="20" fill="none" stroke={c} strokeWidth="0.8" opacity="0.4" />
-                  )}
-                  <text x={n.x} y={n.y + 28} textAnchor="middle" fill="#6e7681" fontSize="7.5">
-                    {n.label}
-                  </text>
-                  {n.status === 'warn' && (
-                    <text x={n.x + 10} y={n.y - 10} fill="var(--color-warn)" fontSize="10" fontWeight="bold">!</text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Telemetry pulse dots (static representation) */}
-            {[0.3, 0.6].map((frac, i) => (
-              <circle
-                key={i}
-                cx={50 + (MINI_NODES[0].x - 50) * frac}
-                cy={150 + (MINI_NODES[0].y - 150) * frac}
-                r="3"
-                fill="#22d3ee"
-                opacity="0.7"
-              />
-            ))}
-          </svg>
+          <DigitalTwinScene nodes={twinNodes.length > 0 ? twinNodes : undefined} />
         </div>
 
         {/* Endpoint list */}
         <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Recent Activity
+            Recent Threats
           </p>
-          {[
-            { label: 'srv-prod-01',   msg: 'Telemetry stream active',    status: 'healthy', time: '2s ago'  },
-            { label: 'iot-sensor-3',  msg: 'Anomalous CPU spike (94%)', status: 'warn',    time: '14s ago' },
-            { label: 'ws-dev-07',     msg: 'Policy compliance verified', status: 'healthy', time: '1m ago'  },
-            { label: 'db-replica-2',  msg: 'Snapshot completed',         status: 'healthy', time: '3m ago'  },
-          ].map((item) => (
+          {recentThreats.length === 0 ? (
+            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              No recent threats detected.
+            </div>
+          ) : recentThreats.map((item) => (
             <div
-              key={item.label}
+              key={item.id}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -237,7 +226,9 @@ export function AppHomePage() {
                 padding: '0.5rem 0.75rem',
                 backgroundColor: 'var(--color-bg-overlay)',
                 borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border-subtle)',
+                border: item.severity === 'critical' || item.severity === 'high' 
+                  ? '1px solid var(--color-danger)'
+                  : '1px solid var(--color-warn)',
               }}
             >
               <div
@@ -245,18 +236,19 @@ export function AppHomePage() {
                   width: 6,
                   height: 6,
                   borderRadius: '50%',
-                  backgroundColor: STATUS_COLOR[item.status],
+                  backgroundColor: item.severity === 'critical' || item.severity === 'high' 
+                  ? 'var(--color-danger)' : 'var(--color-warn)',
                   flexShrink: 0,
                 }}
               />
               <span style={{ fontSize: '0.8rem', color: 'var(--color-accent)', fontFamily: 'var(--font-mono)', minWidth: 110 }}>
-                {item.label}
+                {item.device_name || 'Unknown Device'}
               </span>
-              <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', flex: 1 }}>
-                {item.msg}
+              <span style={{ fontSize: '0.78rem', color: 'var(--color-text-primary)', flex: 1 }}>
+                {item.threat_type}
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
-                {item.time}
+                {new Date(item.detected_at).toLocaleTimeString()}
               </span>
             </div>
           ))}

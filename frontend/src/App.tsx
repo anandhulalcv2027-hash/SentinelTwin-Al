@@ -12,6 +12,22 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { AlertsPage } from '@/pages/AlertsPage';
+import { SOCDashboardPage } from '@/pages/SOCDashboardPage';
+
+// Settings Pages
+import { SettingsLayout } from '@/layouts/SettingsLayout';
+import { AccountSettings } from '@/pages/settings/AccountSettings';
+import { OrganizationSettings } from '@/pages/settings/OrganizationSettings';
+import { UsersRolesSettings } from '@/pages/settings/UsersRolesSettings';
+import { SecuritySettings } from '@/pages/settings/SecuritySettings';
+import { PreferencesSettings } from '@/pages/settings/PreferencesSettings';
+import { EndpointsSettings } from '@/pages/settings/EndpointsSettings';
+import { AlertsSettings } from '@/pages/settings/AlertsSettings';
+import { NotificationsSettings } from '@/pages/settings/NotificationsSettings';
+import { IntegrationsSettings } from '@/pages/settings/IntegrationsSettings';
+import { AuditLogsSettings } from '@/pages/settings/AuditLogsSettings';
+import { SessionsSettings } from '@/pages/settings/SessionsSettings';
+import { SystemSettings } from '@/pages/settings/SystemSettings';
 
 export function App() {
   return (
@@ -33,11 +49,27 @@ export function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/app" element={<AppHomePage />} />
-              {/* Placeholder routes for sidebar links */}
+              {/* Main App Routes */}
               <Route path="/app/endpoints" element={<EndpointsPage />} />
               <Route path="/app/users" element={<UsersPage />} />
               <Route path="/app/alerts" element={<AlertsPage />} />
-              <Route path="/app/settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="/app/soc" element={<SOCDashboardPage />} />
+              
+              {/* Settings routes */}
+              <Route path="/app/settings" element={<SettingsLayout />}>
+                <Route path="account" element={<AccountSettings />} />
+                <Route path="organization" element={<OrganizationSettings />} />
+                <Route path="users" element={<UsersRolesSettings />} />
+                <Route path="security" element={<SecuritySettings />} />
+                <Route path="preferences" element={<PreferencesSettings />} />
+                <Route path="endpoints" element={<EndpointsSettings />} />
+                <Route path="alerts" element={<AlertsSettings />} />
+                <Route path="notifications" element={<NotificationsSettings />} />
+                <Route path="integrations" element={<IntegrationsSettings />} />
+                <Route path="audit" element={<AuditLogsSettings />} />
+                <Route path="sessions" element={<SessionsSettings />} />
+                <Route path="system" element={<SystemSettings />} />
+              </Route>
             </Route>
           </Route>
 
@@ -49,44 +81,4 @@ export function App() {
   );
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div
-      style={{
-        padding: '2rem',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        color: 'var(--color-text-muted)',
-      }}
-    >
-      <div
-        style={{
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          color: 'var(--color-accent)',
-          marginBottom: '0.5rem',
-        }}
-      >
-        Coming Soon
-      </div>
-      <h2
-        style={{
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          color: 'var(--color-text-primary)',
-          marginBottom: '0.5rem',
-        }}
-      >
-        {title}
-      </h2>
-      <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-        This section will be available in a future release.
-      </p>
-    </div>
-  );
-}
+

@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { AlertListResponse } from '@/types/alert';
+import type { Alert, AlertListResponse } from '@/types/alert';
 import { AxiosError } from 'axios';
 
 const ALERTS_PREFIX = '/api/v1/alerts';
@@ -18,6 +18,11 @@ export function handleAlertError(error: unknown): string {
 export const alertService = {
   async getAlerts(): Promise<AlertListResponse> {
     const { data } = await api.get<AlertListResponse>(ALERTS_PREFIX);
+    return data;
+  },
+  
+  async resolveAlert(id: string): Promise<Alert> {
+    const { data } = await api.post<Alert>(`${ALERTS_PREFIX}/${id}/resolve`);
     return data;
   },
 };

@@ -36,6 +36,9 @@ export interface UserResponse {
   last_name: string;
   organization_id: string;
   is_active: boolean;
+  email_verified: boolean;
+  last_login: string | null;
+  roles: string[];
 }
 
 // ─── Auth Context State ───────────────────────────────────────────────────────

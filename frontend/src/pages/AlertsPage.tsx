@@ -7,6 +7,7 @@ import {
   Loader2,
   CheckCircle2,
   Monitor,
+  Check,
 } from 'lucide-react';
 import { alertService, handleAlertError } from '@/services/alertService';
 import { deviceService } from '@/services/deviceService';
@@ -60,6 +61,15 @@ export function AlertsPage() {
     
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  const handleResolve = async (id: string) => {
+    try {
+      await alertService.resolveAlert(id);
+      fetchData(true); // refresh silently
+    } catch (err) {
+      setErrorMsg(handleAlertError(err));
+    }
+  };
 
   const filteredAlerts = alerts.filter(alert => {
     if (filter === 'all') return true;
@@ -209,6 +219,7 @@ export function AlertsPage() {
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Device</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Metric</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Time</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'right', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,6 +264,18 @@ export function AlertsPage() {
                       <td style={{ padding: '1rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
                         <div style={{ whiteSpace: 'nowrap' }}>Created: {formatDate(alert.created_at)}</div>
                         {isResolved && <div style={{ whiteSpace: 'nowrap' }}>Resolved: {formatDate(alert.resolved_at)}</div>}
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        {!isResolved && (
+                          <button
+                            onClick={() => handleResolve(alert.id)}
+                            className="st-btn-ghost"
+                            style={{ padding: '0.4rem', border: 'none', color: 'var(--color-success)' }}
+                            title="Resolve Alert"
+                          >
+                            <Check size={16} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

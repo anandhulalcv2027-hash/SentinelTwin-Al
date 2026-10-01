@@ -1,4 +1,7 @@
-from mailersend import MailerSendClient, EmailBuilder
+import smtplib
+from email.message import EmailMessage
+
+from mailersend import EmailBuilder, MailerSendClient
 
 from app.core.config import settings
 
@@ -13,8 +16,125 @@ class EmailService:
         text: str | None = None,
     ) -> None:
         """
-        Send a transactional email through MailerSend.
+        Send a transactional email using the configured provider.
+        Supported providers:
+        - smtp
+        - mailersend
         """
+
+        provider = settings.email_provider.lower().strip()
+
+        if provider == "smtp":
+            EmailService._send_via_smtp(
+                to=to,
+                subject=subject,
+                html=html,
+                text=text,
+            )
+            return
+
+        if provider == "mailersend":
+            EmailService._send_via_mailersend(
+                to=to,
+                subject=subject,
+                html=html,
+                text=text,
+            )
+            return
+
+        raise RuntimeError(
+            f"Unsupported email provider: {settings.email_provider}"
+        )
+
+    @staticmethod
+    def _send_via_smtp(
+        to: str,
+        subject: str,
+        html: str,
+        text: str | None = None,
+    ) -> None:
+        if not settings.smtp_host:
+            raise RuntimeError("SMTP_HOST is not configured.")
+
+        if not settings.smtp_username:
+            raise RuntimeError("SMTP_USERNAME is not configured.")
+
+        if not settings.smtp_password:
+            raise RuntimeError("SMTP_PASSWORD is not configured.")
+
+        from_email = (
+            settings.smtp_from_email
+            or settings.smtp_username
+        )
+
+        from_name = settings.smtp_from_name
+
+        message = EmailMessage()
+
+        message["Subject"] = subject
+        message["From"] = (
+            f"{from_name} <{from_email}>"
+            if from_name
+            else from_email
+        )
+        message["To"] = to
+
+        plain_text = text or ""
+        message.set_content(plain_text)
+
+        message.add_alternative(
+            html,
+            subtype="html",
+        )
+
+        try:
+            if settings.smtp_use_tls:
+                with smtplib.SMTP(
+                    settings.smtp_host,
+                    settings.smtp_port,
+                    timeout=20,
+                ) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                    server.login(
+                        settings.smtp_username,
+                        settings.smtp_password,
+                    )
+                    server.send_message(message)
+            else:
+                with smtplib.SMTP_SSL(
+                    settings.smtp_host,
+                    settings.smtp_port,
+                    timeout=20,
+                ) as server:
+                    server.login(
+                        settings.smtp_username,
+                        settings.smtp_password,
+                    )
+                    server.send_message(message)
+
+        except smtplib.SMTPException as exc:
+            raise RuntimeError(
+                f"SMTP email delivery failed: {exc}"
+            ) from exc
+
+    @staticmethod
+    def _send_via_mailersend(
+        to: str,
+        subject: str,
+        html: str,
+        text: str | None = None,
+    ) -> None:
+        if not settings.mailersend_api_key:
+            raise RuntimeError(
+                "MAILERSEND_API_KEY is not configured."
+            )
+
+        if not settings.mailersend_from_email:
+            raise RuntimeError(
+                "MAILERSEND_FROM_EMAIL is not configured."
+            )
 
         client = MailerSendClient(
             api_key=settings.mailersend_api_key

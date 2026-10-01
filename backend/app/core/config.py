@@ -35,16 +35,59 @@ class Settings(BaseSettings):
     # Google Sign-In
     google_client_id: str = Field(alias="GOOGLE_CLIENT_ID")
 
-    # Email — MailerSend
-    mailersend_api_key: str = Field(alias="MAILERSEND_API_KEY")
-
-    mailersend_from_email: str = Field(
-        alias="MAILERSEND_FROM_EMAIL"
+    # MailerSend
+    mailersend_api_key: str = Field(
+        default="",
+        alias="MAILERSEND_API_KEY",
     )
-
+    mailersend_from_email: str = Field(
+        default="",
+        alias="MAILERSEND_FROM_EMAIL",
+    )
     mailersend_from_name: str = Field(
         default="SentinelTwin AI",
         alias="MAILERSEND_FROM_NAME",
+    )
+
+    # SMTP
+    smtp_host: str = Field(
+        default="",
+        alias="SMTP_HOST",
+    )
+    smtp_port: int = Field(
+        default=587,
+        alias="SMTP_PORT",
+    )
+    smtp_username: str = Field(
+        default="",
+        alias="SMTP_USERNAME",
+    )
+    smtp_password: str = Field(
+        default="",
+        alias="SMTP_PASSWORD",
+    )
+    smtp_from_email: str = Field(
+        default="",
+        alias="SMTP_FROM_EMAIL",
+    )
+    smtp_from_name: str = Field(
+        default="SentinelTwin AI",
+        alias="SMTP_FROM_NAME",
+    )
+    smtp_use_tls: bool = Field(
+        default=True,
+        alias="SMTP_USE_TLS",
+    )
+
+    # Email
+    email_provider: str = Field(
+        default="smtp",
+        alias="EMAIL_PROVIDER",
+    )
+
+    email_verification_required: bool = Field(
+        default=True,
+        alias="EMAIL_VERIFICATION_REQUIRED",
     )
 
     # Frontend
@@ -57,6 +100,12 @@ class Settings(BaseSettings):
     cors_origins: str = Field(
         default="http://localhost:5173,http://localhost:5174",
         alias="CORS_ORIGINS",
+    )
+
+    # Public API
+    public_api_url: str = Field(
+        default="http://127.0.0.1:8000",
+        alias="PUBLIC_API_URL",
     )
 
     model_config = SettingsConfigDict(

@@ -5,25 +5,22 @@ import * as THREE from 'three';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type TwinNodeStatus = 'healthy' | 'anomaly' | 'dim';
+
+export interface TwinNode {
+  id: string;
+  status: TwinNodeStatus;
+}
+
 interface NodeDef {
-  id: number;
+  id: string;
   position: [number, number, number];
-  status: 'healthy' | 'anomaly' | 'dim';
+  status: TwinNodeStatus;
 }
 
 // ─── Scene constants ─────────────────────────────────────────────────────────
 
 const HUB_POS: [number, number, number] = [0, 0, 0];
-
-const NODES: NodeDef[] = [
-  { id: 0, position: [ 3.2,  0.5,  0.8], status: 'healthy'  },
-  { id: 1, position: [-3.0,  0.8, -0.5], status: 'healthy'  },
-  { id: 2, position: [ 1.5,  2.8,  1.2], status: 'healthy'  },
-  { id: 3, position: [-1.2, -2.6,  0.9], status: 'anomaly'  },
-  { id: 4, position: [ 2.8, -1.5, -1.0], status: 'healthy'  },
-  { id: 5, position: [-2.5,  1.8,  1.5], status: 'dim'      },
-  { id: 6, position: [ 0.5, -3.2, -1.5], status: 'healthy'  },
-];
 
 const COLOR_HEALTHY = new THREE.Color('#22d3ee');
 const COLOR_ANOMALY = new THREE.Color('#d29922');
@@ -199,7 +196,7 @@ function Connection({
 
 // ─── Main scene graph ─────────────────────────────────────────────────────────
 
-function SceneGraph({ paused }: { paused: boolean }) {
+function SceneGraph({ paused, nodes }: { paused: boolean, nodes: NodeDef[] }) {
   return (
     <>
       <ambientLight intensity={0.25} />
@@ -208,11 +205,11 @@ function SceneGraph({ paused }: { paused: boolean }) {
 
       <Hub paused={paused} />
 
-      {NODES.map((node) => (
+      {nodes.map((node) => (
         <Node key={node.id} node={node} paused={paused} />
       ))}
 
-      {NODES.map((node) => (
+      {nodes.map((node) => (
         <Connection
           key={`conn-${node.id}`}
           from={HUB_POS}
@@ -238,7 +235,7 @@ function SceneGraph({ paused }: { paused: boolean }) {
 
 // ─── CSS fallback (no-WebGL) ──────────────────────────────────────────────────
 
-function StaticFallback() {
+function StaticFallback({ nodes }: { nodes: NodeDef[] }) {
   return (
     <div
       aria-hidden="true"
@@ -263,32 +260,29 @@ function StaticFallback() {
         <circle cx="150" cy="150" r="36" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.4" />
 
         {/* Satellite positions */}
-        {[
-          { cx: 240, cy: 110, status: 'healthy' },
-          { cx: 60,  cy: 120, status: 'healthy' },
-          { cx: 180, cy: 50,  status: 'healthy' },
-          { cx: 110, cy: 240, status: 'anomaly' },
-          { cx: 230, cy: 210, status: 'healthy' },
-          { cx: 50,  cy: 195, status: 'dim'     },
-          { cx: 155, cy: 265, status: 'healthy' },
-        ].map((n, i) => (
-          <g key={i}>
-            <line
-              x1="150" y1="150" x2={n.cx} y2={n.cy}
-              stroke={n.status === 'healthy' ? '#22d3ee' : n.status === 'anomaly' ? '#d29922' : '#334155'}
-              strokeWidth="0.8"
-              opacity={n.status === 'dim' ? 0.15 : 0.35}
-            />
-            <circle
-              cx={n.cx} cy={n.cy} r="10"
-              fill={n.status === 'healthy' ? '#22d3ee' : n.status === 'anomaly' ? '#d29922' : '#334155'}
-              opacity={n.status === 'dim' ? 0.3 : 0.85}
-            />
-            {n.status === 'anomaly' && (
-              <circle cx={n.cx} cy={n.cy} r="17" fill="none" stroke="#d29922" strokeWidth="1.5" opacity="0.5" />
-            )}
-          </g>
-        ))}
+        {nodes.map((n, i) => {
+          // Map 3D coordinates [-4, 4] to SVG [0, 300] roughly
+          const cx = 150 + (n.position[0] * 35);
+          const cy = 150 + (n.position[1] * -35); // Invert Y
+          return (
+            <g key={n.id}>
+              <line
+                x1="150" y1="150" x2={cx} y2={cy}
+                stroke={n.status === 'healthy' ? '#22d3ee' : n.status === 'anomaly' ? '#d29922' : '#334155'}
+                strokeWidth="0.8"
+                opacity={n.status === 'dim' ? 0.15 : 0.35}
+              />
+              <circle
+                cx={cx} cy={cy} r="10"
+                fill={n.status === 'healthy' ? '#22d3ee' : n.status === 'anomaly' ? '#d29922' : '#334155'}
+                opacity={n.status === 'dim' ? 0.3 : 0.85}
+              />
+              {n.status === 'anomaly' && (
+                <circle cx={cx} cy={cy} r="17" fill="none" stroke="#d29922" strokeWidth="1.5" opacity="0.5" />
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
@@ -299,11 +293,43 @@ function StaticFallback() {
 interface DigitalTwinSceneProps {
   className?: string;
   style?: React.CSSProperties;
+  nodes?: TwinNode[];
 }
 
-export function DigitalTwinScene({ className, style }: DigitalTwinSceneProps) {
+export function DigitalTwinScene({ className, style, nodes = [] }: DigitalTwinSceneProps) {
   const [webGLAvailable, setWebGLAvailable] = useState(true);
   const [paused, setPaused] = useState(false);
+
+  // Generate stable positions for nodes
+  const nodeDefs = useMemo<NodeDef[]>(() => {
+    // If no dynamic nodes passed, provide dummy nodes for landing page
+    const actualNodes = nodes.length > 0 ? nodes : [
+      { id: 'dummy-0', status: 'healthy' as TwinNodeStatus },
+      { id: 'dummy-1', status: 'healthy' as TwinNodeStatus },
+      { id: 'dummy-2', status: 'healthy' as TwinNodeStatus },
+      { id: 'dummy-3', status: 'anomaly' as TwinNodeStatus },
+      { id: 'dummy-4', status: 'healthy' as TwinNodeStatus },
+      { id: 'dummy-5', status: 'dim' as TwinNodeStatus },
+      { id: 'dummy-6', status: 'healthy' as TwinNodeStatus },
+    ];
+
+    return actualNodes.map((node, i) => {
+      // Create a nice spherical distribution
+      const phi = Math.acos(-1 + (2 * i) / actualNodes.length);
+      const theta = Math.sqrt(actualNodes.length * Math.PI) * phi;
+      
+      const r = 3.5 + Math.sin(i * 4567) * 0.5; // Randomize radius slightly
+      const x = r * Math.cos(theta) * Math.sin(phi);
+      const y = r * Math.sin(theta) * Math.sin(phi);
+      const z = r * Math.cos(phi);
+
+      return {
+        id: node.id,
+        position: [x, y, z],
+        status: node.status,
+      };
+    });
+  }, [nodes]);
 
   // Detect WebGL support
   useEffect(() => {
@@ -345,7 +371,7 @@ export function DigitalTwinScene({ className, style }: DigitalTwinSceneProps) {
         role="img"
         aria-label="SentinelTwin AI network diagram — static fallback"
       >
-        <StaticFallback />
+        <StaticFallback nodes={nodeDefs} />
       </div>
     );
   }
@@ -363,7 +389,7 @@ export function DigitalTwinScene({ className, style }: DigitalTwinSceneProps) {
         dpr={[1, 1.5]}
         gl={{ antialias: true, alpha: true }}
       >
-        <SceneGraph paused={paused} />
+        <SceneGraph paused={paused} nodes={nodeDefs} />
       </Canvas>
     </div>
   );

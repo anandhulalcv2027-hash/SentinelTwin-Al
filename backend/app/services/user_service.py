@@ -15,12 +15,22 @@ from app.security.hashing import hash_password
 
 
 class UserService:
-
     @staticmethod
     def list_users(
         db: Session,
-        organization_id: UUID,
+        organization_id: UUID | None = None,
+        is_super_admin: bool = False,
     ) -> list[User]:
+
+        if is_super_admin:
+            return UserRepository.get_all_users(db)
+
+        if organization_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Organization ID is required for organization-scoped users.",
+            )
+
         return UserRepository.get_users_by_organization(
             db,
             organization_id,

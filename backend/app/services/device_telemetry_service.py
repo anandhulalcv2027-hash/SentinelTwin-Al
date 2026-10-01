@@ -12,6 +12,9 @@ from app.repositories.device_telemetry_repository import (
 from app.schemas.device import DeviceTelemetryRequest
 from app.security.device_heartbeat import verify_heartbeat_token
 from app.services.alert_service import AlertService
+from app.services.twin_service import TwinService
+from app.services.ai_prediction_service import AIPredictionService
+from app.models.threat_event import ThreatEvent
 
 
 class DeviceTelemetryService:
@@ -22,7 +25,7 @@ class DeviceTelemetryService:
         device_id: UUID,
         token: str,
         request: DeviceTelemetryRequest,
-    ) -> DeviceTelemetry:
+    ) -> tuple[DeviceTelemetry, ThreatEvent | None]:
         device = DeviceRepository.get_by_id_without_organization(
             db,
             device_id,
@@ -78,11 +81,39 @@ class DeviceTelemetryService:
             device,
             telemetry,
         )
+        
+        prediction, threat_event = AIPredictionService.evaluate_telemetry(
+            db,
+            device,
+            telemetry,
+        )
+        
+        TwinService.sync_from_telemetry(
+            db,
+            device.id,
+            telemetry,
+            prediction,
+        )
 
         db.commit()
         db.refresh(telemetry)
 
-        return telemetry
+        return telemetry, threat_event
+
+    @staticmethod
+    def get_organization_id(
+        db: Session,
+        device_id: UUID,
+    ) -> UUID:
+        device = DeviceRepository.get_by_id_without_organization(
+            db,
+            device_id,
+        )
+
+        if device is None:
+            raise ValueError("Device not found.")
+
+        return device.organization_id
 
 
     @staticmethod

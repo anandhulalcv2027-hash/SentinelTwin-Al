@@ -58,9 +58,17 @@ def list_users(
     ),
     db: Session = Depends(get_db),
 ):
+    current_user_roles = UserRepository.get_user_role_names(
+        db,
+        str(current_user.id),
+    )
+
+    is_super_admin = "Super Admin" in current_user_roles
+
     users = UserService.list_users(
         db,
         current_user.organization_id,
+        is_super_admin=is_super_admin,
     )
 
     return UserListResponse(

@@ -6,6 +6,7 @@ export interface Device {
   description: string | null;
   device_type: string;
   is_active: boolean;
+  is_isolated: boolean;
   last_seen: string | null;
   created_at: string;
   updated_at: string;
@@ -47,4 +48,23 @@ export interface DeviceTelemetry {
   uptime_seconds: number;
   agent_version: string;
   collected_at: string;
+}
+
+export type HealthStatus = 'healthy' | 'warning' | 'critical' | 'offline';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical' | 'none';
+
+export interface DeviceLiveState {
+  cpu_usage_percent: number;
+  memory_usage_percent: number;
+  disk_usage_percent: number;
+  last_updated: string;
+}
+
+export interface TwinData {
+  device_id: string;
+  is_isolated: boolean;
+  health_status: HealthStatus;
+  risk_level: RiskLevel;
+  state_last_updated: string | null;
+  live_state: DeviceLiveState | null;
 }

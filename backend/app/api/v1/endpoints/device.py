@@ -1,9 +1,18 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    status,
+)
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.websocket.manager import websocket_manager
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.device import (
@@ -20,6 +29,16 @@ from app.services.device_service import DeviceService
 from app.services.device_telemetry_service import (
     DeviceTelemetryService,
 )
+from app.services.agent_package_service import AgentPackageService
+from app.schemas.device_enrollment import (
+    DeviceEnrollmentRequest,
+    DeviceEnrollmentResponse,
+)
+from app.services.device_enrollment_service import (
+    DeviceEnrollmentService,
+)
+from app.services.twin_service import TwinService
+
 
 
 router = APIRouter(
@@ -39,7 +58,7 @@ def create_device(
     db: Session = Depends(get_db),
 ):
     try:
-        device, heartbeat_token = DeviceService.create(
+        device, heartbeat_token, enrollment_token = DeviceService.create(
             db,
             current_user,
             request,
@@ -48,11 +67,93 @@ def create_device(
         return DeviceCreateResponse(
             device=device,
             heartbeat_token=heartbeat_token,
+            enrollment_token=enrollment_token,
         )
 
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/enroll",
+    response_model=DeviceEnrollmentResponse,
+)
+def enroll_device(
+    request: DeviceEnrollmentRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        device, heartbeat_token = DeviceEnrollmentService.enroll(
+            db,
+            request.enrollment_token,
+        )
+
+        return DeviceEnrollmentResponse(
+            device_id=device.id,
+            heartbeat_token=heartbeat_token,
+            status="enrolled",
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+
+
+@router.get(
+    "/{device_id}/agent-package",
+)
+def download_agent_package(
+    device_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        device = DeviceService.get(
+            db,
+            current_user,
+            device_id,
+        )
+
+        package = AgentPackageService.create_package(
+            db,
+            device,
+        )
+
+        filename = (
+            f"SentinelTwin-Agent-"
+            f"{device.device_identifier}.zip"
+        )
+
+        return Response(
+            content=package,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{filename}"'
+                )
+            },
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
 
@@ -84,6 +185,7 @@ def list_devices(
 def create_device_telemetry(
     device_id: UUID,
     request: DeviceTelemetryRequest,
+    background_tasks: BackgroundTasks,
     x_device_token: str | None = Header(
         default=None,
         alias="X-Device-Token",
@@ -97,12 +199,64 @@ def create_device_telemetry(
         )
 
     try:
-        return DeviceTelemetryService.create(
+        telemetry, threat_event = DeviceTelemetryService.create(
             db,
             device_id,
             x_device_token,
             request,
         )
+
+        organization_id = (
+            DeviceTelemetryService.get_organization_id(
+                db,
+                device_id,
+            )
+        )
+
+        telemetry_payload = (
+            DeviceTelemetryResponse.model_validate(
+                telemetry
+            ).model_dump(mode="json")
+        )
+
+        background_tasks.add_task(
+            websocket_manager.broadcast_to_organization,
+            organization_id,
+            {
+                "type": "telemetry.updated",
+                "device_id": str(device_id),
+                "telemetry": telemetry_payload,
+            },
+        )
+        
+        twin_data = TwinService.get_twin_data(db, device_id)
+        background_tasks.add_task(
+            websocket_manager.broadcast_to_organization,
+            organization_id,
+            {
+                "type": "twin.updated",
+                "device_id": str(device_id),
+                "twin": twin_data,
+            },
+        )
+        
+        if threat_event:
+            from app.schemas.threat_event import ThreatEventResponse
+            threat_payload = ThreatEventResponse.model_validate(threat_event)
+            # We don't have device.name easily here unless we query it, but we can just omit it or pass empty
+            # Actually device is inside DeviceTelemetryService, but we only have device_id here.
+            # We can leave device_name as None, frontend can map it if needed.
+            background_tasks.add_task(
+                websocket_manager.broadcast_to_organization,
+                organization_id,
+                {
+                    "type": "threat.detected",
+                    "device_id": str(device_id),
+                    "threat": threat_payload.model_dump(mode="json"),
+                },
+            )
+
+        return telemetry
 
     except ValueError as e:
         raise HTTPException(
@@ -162,6 +316,31 @@ def get_device(
             current_user,
             device_id,
         )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
+@router.get(
+    "/{device_id}/twin",
+)
+def get_device_twin(
+    device_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        # Verify that the device belongs to the current user's organization.
+        DeviceService.get(
+            db,
+            current_user,
+            device_id,
+        )
+
+        return TwinService.get_twin_data(db, device_id)
 
     except ValueError as e:
         raise HTTPException(
@@ -262,3 +441,42 @@ def delete_device(
         )
 
     return None
+
+@router.post(
+    "/{device_id}/isolate",
+    response_model=DeviceResponse,
+)
+def isolate_device(
+    device_id: UUID,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        device = DeviceService.isolate(
+            db,
+            current_user,
+            device_id,
+        )
+
+        twin_data = TwinService.get_twin_data(db, device_id)
+        # Update twin with isolated info if needed (the TwinService can also be modified to force CRITICAL)
+        
+        # Broadcast the twin update
+        background_tasks.add_task(
+            websocket_manager.broadcast_to_organization,
+            current_user.organization_id,
+            {
+                "type": "twin.updated",
+                "device_id": str(device_id),
+                "twin": twin_data,
+            },
+        )
+        
+        return device
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )

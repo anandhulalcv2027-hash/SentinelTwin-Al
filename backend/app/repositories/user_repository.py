@@ -119,6 +119,14 @@ class UserRepository:
                 User.id == user_id
             )
         )
+    
+    @staticmethod
+    def get_all_users(db: Session) -> list[User]:
+        return list(
+            db.scalars(
+                select(User).order_by(User.created_at.desc())
+            ).all()
+        )
 
     # ------------------------------------------------------------------
     # Organization-scoped user management

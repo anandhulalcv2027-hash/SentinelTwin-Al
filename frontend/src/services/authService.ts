@@ -143,4 +143,22 @@ export const authService = {
 
     return data;
   },
+
+  /**
+ * POST /api/v1/auth/change-password
+ */
+  async changePassword(
+    current_password: string,
+    new_password: string,
+  ): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(
+      `${AUTH_PREFIX}/change-password`,
+      {
+        current_password,
+        new_password,
+      },
+    );
+
+    return data;
+  },
 };

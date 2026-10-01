@@ -39,7 +39,154 @@
   --radius-xl:  12px;
 }
 
+/* ─── Theme Overrides ───────────────────────────────────────────────────── */
+
+/*
+ * Explicit Light Theme
+ *
+ * Applied when:
+ * <html data-theme="light">
+ */
+:root[data-theme="light"] {
+  /* Backgrounds */
+  --color-bg-base:        #f6f8fa;
+  --color-bg-surface:     #ffffff;
+  --color-bg-elevated:    #f0f3f6;
+  --color-bg-overlay:     #eaeef2;
+
+  /* Borders */
+  --color-border:         #d0d7de;
+  --color-border-subtle:  #e5e7eb;
+
+  /* Text */
+  --color-text-primary:   #1f2328;
+  --color-text-secondary: #57606a;
+  --color-text-muted:     #6e7781;
+
+  /* Accent */
+  --color-accent:         #0891b2;
+  --color-accent-dim:     #cffafe;
+  --color-accent-glow:    #06b6d4;
+
+  /* Status */
+  --color-success:        #1a7f37;
+  --color-warn:           #9a6700;
+  --color-danger:         #cf222e;
+  --color-danger-dim:     #ffebe9;
+
+  color-scheme: light;
+}
+
+/*
+ * Explicit Dark Theme
+ *
+ * Applied when:
+ * <html data-theme="dark">
+ *
+ * These values intentionally match the original SentinelTwin palette.
+ */
+:root[data-theme="dark"] {
+  /* Backgrounds */
+  --color-bg-base:        #0d1117;
+  --color-bg-surface:     #161b22;
+  --color-bg-elevated:    #1c2230;
+  --color-bg-overlay:     #21262d;
+
+  /* Borders */
+  --color-border:         #30363d;
+  --color-border-subtle:  #21262d;
+
+  /* Text */
+  --color-text-primary:   #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-muted:     #6e7681;
+
+  /* Accent */
+  --color-accent:         #22d3ee;
+  --color-accent-dim:     #164e63;
+  --color-accent-glow:    #0891b2;
+
+  /* Status */
+  --color-success:        #3fb950;
+  --color-warn:           #d29922;
+  --color-danger:         #f85149;
+  --color-danger-dim:     #490202;
+
+  color-scheme: dark;
+}
+
+/*
+ * System Preference — Light
+ *
+ * Used only when the application has no explicit
+ * data-theme attribute.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --color-bg-base:        #f6f8fa;
+    --color-bg-surface:     #ffffff;
+    --color-bg-elevated:    #f0f3f6;
+    --color-bg-overlay:     #eaeef2;
+
+    --color-border:         #d0d7de;
+    --color-border-subtle:  #e5e7eb;
+
+    --color-text-primary:   #1f2328;
+    --color-text-secondary: #57606a;
+    --color-text-muted:     #6e7781;
+
+    --color-accent:         #0891b2;
+    --color-accent-dim:     #cffafe;
+    --color-accent-glow:    #06b6d4;
+
+    --color-success:        #1a7f37;
+    --color-warn:           #9a6700;
+    --color-danger:         #cf222e;
+    --color-danger-dim:     #ffebe9;
+
+    color-scheme: light;
+  }
+}
+
+/*
+ * System Preference — Dark
+ *
+ * Used when no explicit theme attribute exists
+ * and the operating system/browser prefers dark.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
+/* ─── Global Theme Transition ────────────────────────────────────────────── */
+
+html,
+body,
+#root {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.st-card,
+.st-input,
+.st-btn-ghost,
+.st-btn-outline,
+.st-btn-primary,
+table,
+thead,
+tbody,
+tr {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
 /* ─── Base Reset ─────────────────────────────────────────────────────────── */
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -48,6 +195,7 @@
 
 html {
   scroll-behavior: smooth;
+  background-color: var(--color-bg-base);
 }
 
 body {
@@ -60,7 +208,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+#root {
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* ─── Native Form Controls ───────────────────────────────────────────────── */
+
+select,
+input,
+textarea,
+button {
+  color-scheme: inherit;
+}
+
+select {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-overlay);
+}
+
+select option {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-surface);
+}
+
 /* ─── Focus Styles ───────────────────────────────────────────────────────── */
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -68,22 +242,27 @@ body {
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--color-bg-surface);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
 
 /* ─── Utility Classes ────────────────────────────────────────────────────── */
+
 .st-btn-primary {
   display: inline-flex;
   align-items: center;
@@ -99,9 +278,11 @@ body {
   transition: background-color 0.15s, opacity 0.15s;
   text-decoration: none;
 }
+
 .st-btn-primary:hover {
   background-color: #67e8f9;
 }
+
 .st-btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -122,6 +303,7 @@ body {
   transition: border-color 0.15s, color 0.15s;
   text-decoration: none;
 }
+
 .st-btn-ghost:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
@@ -142,6 +324,7 @@ body {
   transition: background-color 0.15s;
   text-decoration: none;
 }
+
 .st-btn-outline:hover {
   background-color: var(--color-accent-dim);
 }
@@ -155,17 +338,28 @@ body {
   color: var(--color-text-primary);
   font-size: 0.9rem;
   font-family: var(--font-sans);
-  transition: border-color 0.15s;
+  transition:
+    border-color 0.15s,
+    background-color 0.2s,
+    color 0.2s;
 }
+
 .st-input::placeholder {
   color: var(--color-text-muted);
 }
+
 .st-input:focus {
   outline: none;
   border-color: var(--color-accent);
 }
+
 .st-input.error {
   border-color: var(--color-danger);
+}
+
+.st-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .st-label {
@@ -228,6 +422,7 @@ body {
 }
 
 /* ─── Animations ─────────────────────────────────────────────────────────── */
+
 @keyframes pulse-ring {
   0%   { transform: scale(1);   opacity: 0.7; }
   50%  { transform: scale(1.4); opacity: 0.2; }
@@ -235,16 +430,27 @@ body {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
   animation: fade-in 0.4s ease both;
 }
 
+/* ─── Reduced Motion ─────────────────────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

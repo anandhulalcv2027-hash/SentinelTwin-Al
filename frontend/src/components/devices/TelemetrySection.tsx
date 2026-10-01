@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Server, Clock, Loader2 } from 'lucide-react';
 import { deviceService } from '@/services/deviceService';
 import type { DeviceTelemetry } from '@/types/device';
 import { TelemetryMetric } from './TelemetryMetric';
 import { UptimeDisplay } from './UptimeDisplay';
 import { parseBackendTimestamp } from '@/lib/dateUtils';
+import { useTelemetryWebSocket } from '@/hooks/useTelemetryWebSocket';
 
 type TelemetryHealth = {
   label: string;
@@ -46,15 +47,33 @@ function getTelemetryHealth(
 
   return {
     label: 'Offline',
-    description: 'Telemetry has not been received for more than 5 minutes.',
+    description:
+      'Telemetry has not been received for more than 5 minutes.',
     indicator: 'var(--color-danger)',
   };
 }
 
-export function TelemetrySection({ deviceId }: { deviceId: string }) {
+export function TelemetrySection({
+  deviceId,
+}: {
+  deviceId: string;
+}) {
   const [telemetry, setTelemetry] =
     useState<DeviceTelemetry | null>(null);
+
   const [loading, setLoading] = useState(true);
+
+  const handleLiveTelemetry = useCallback(
+    (nextTelemetry: DeviceTelemetry) => {
+      setTelemetry(nextTelemetry);
+    },
+    [],
+  );
+
+  const { connected } = useTelemetryWebSocket(
+    deviceId,
+    handleLiveTelemetry,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +106,7 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
 
     fetchTelemetry(true);
 
+    // Keep REST polling as a fallback.
     const intervalId = window.setInterval(() => {
       fetchTelemetry(false);
     }, 30_000);
@@ -96,6 +116,63 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
       window.clearInterval(intervalId);
     };
   }, [deviceId]);
+
+  const telemetryHeader = (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '1rem',
+        marginBottom: '1rem',
+      }}
+    >
+      <h3
+        style={{
+          fontSize: '1.1rem',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+          margin: 0,
+        }}
+      >
+        Endpoint Telemetry
+      </h3>
+
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          fontSize: '0.7rem',
+          fontWeight: 600,
+          color: connected
+            ? 'var(--color-success)'
+            : 'var(--color-warning)',
+          backgroundColor: connected
+            ? 'rgba(63,185,80,0.1)'
+            : 'rgba(210,153,34,0.1)',
+          border: `1px solid ${
+            connected
+              ? 'rgba(63,185,80,0.25)'
+              : 'rgba(210,153,34,0.25)'
+          }`,
+          padding: '0.25rem 0.55rem',
+          borderRadius: 999,
+        }}
+      >
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            backgroundColor: 'currentColor',
+          }}
+        />
+
+        {connected ? 'LIVE' : 'RECONNECTING'}
+      </span>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -107,17 +184,7 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
           paddingTop: '1.5rem',
         }}
       >
-        <h3
-          style={{
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            color:
-              'var(--color-text-primary)',
-            marginBottom: '1rem',
-          }}
-        >
-          Endpoint Telemetry
-        </h3>
+        {telemetryHeader}
 
         <div
           style={{
@@ -138,8 +205,8 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
 
   const health = telemetry
     ? getTelemetryHealth(
-      telemetry.collected_at,
-    )
+        telemetry.collected_at,
+      )
     : null;
 
   return (
@@ -151,17 +218,7 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
         paddingTop: '1.5rem',
       }}
     >
-      <h3
-        style={{
-          fontSize: '1.1rem',
-          fontWeight: 600,
-          color:
-            'var(--color-text-primary)',
-          marginBottom: '1rem',
-        }}
-      >
-        Endpoint Telemetry
-      </h3>
+      {telemetryHeader}
 
       {!telemetry ? (
         <div
@@ -259,6 +316,7 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
             </div>
           )}
 
+          {/* Endpoint information */}
           <div
             style={{
               display: 'grid',
@@ -398,6 +456,7 @@ export function TelemetrySection({ deviceId }: { deviceId: string }) {
             </div>
           </div>
 
+          {/* Telemetry metrics */}
           <div
             style={{
               padding: '1.25rem',

@@ -56,6 +56,7 @@ class DeviceResponse(BaseModel):
     description: str | None
     device_type: str
     is_active: bool
+    is_isolated: bool
     last_seen: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -63,6 +64,7 @@ class DeviceResponse(BaseModel):
 class DeviceCreateResponse(BaseModel):
     device: DeviceResponse
     heartbeat_token: str
+    enrollment_token: str
 
 class DeviceListResponse(BaseModel):
     items: list[DeviceResponse]
@@ -71,6 +73,7 @@ class DeviceListResponse(BaseModel):
 class DeviceHeartbeatResponse(BaseModel):
     device_id: UUID
     status: str
+    is_isolated: bool
     last_seen: datetime
 
 class DeviceTelemetryRequest(BaseModel):

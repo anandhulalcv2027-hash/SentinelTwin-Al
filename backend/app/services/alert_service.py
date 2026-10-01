@@ -70,6 +70,35 @@ class AlertService:
         )
 
     @staticmethod
+    def resolve_alert(
+        db: Session,
+        organization_id: UUID,
+        alert_id: UUID,
+    ) -> Alert:
+        from app.repositories.alert_repository import AlertRepository
+        
+        # We need a method to get alert by id, or we can just use db.scalar
+        alert = db.scalar(
+            select(Alert)
+            .where(
+                Alert.id == alert_id,
+                Alert.organization_id == organization_id,
+            )
+        )
+
+        if alert is None:
+            raise ValueError("Alert not found.")
+            
+        if alert.status == "resolved":
+            return alert
+            
+        alert.status = "resolved"
+        alert.resolved_at = datetime.utcnow()
+        db.commit()
+        db.refresh(alert)
+        return alert
+
+    @staticmethod
     def _evaluate_metric(
         db: Session,
         device: Device,

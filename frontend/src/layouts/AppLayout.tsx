@@ -9,11 +9,13 @@ import {
   LogOut,
   ChevronRight,
   Users,
+  Crosshair,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
 const NAV_ITEMS = [
   { label: 'Overview',  to: '/app',      icon: LayoutDashboard },
+  { label: 'SOC Wall',  to: '/app/soc',  icon: Crosshair },
   { label: 'Devices',   to: '/app/endpoints', icon: Monitor },
   { label: 'Users',     to: '/app/users',     icon: Users },
   { label: 'Alerts',    to: '/app/alerts',    icon: AlertTriangle },

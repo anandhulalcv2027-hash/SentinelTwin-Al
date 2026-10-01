@@ -6,6 +6,7 @@ import type {
   DeviceCreateResponse,
   DeviceUpdateRequest,
   DeviceTelemetry,
+  TwinData,
 } from '@/types/device';
 import { AxiosError } from 'axios';
 
@@ -94,6 +95,51 @@ export const deviceService = {
       `${DEVICES_PREFIX}/${id}/telemetry/latest`,
     );
 
+    return data;
+  },
+
+  /**
+   * GET /api/v1/devices/{device_id}/agent-package
+   */
+  async downloadAgentPackage(id: string): Promise<void> {
+    const response = await api.get(`${DEVICES_PREFIX}/${id}/agent-package`, {
+      responseType: 'blob',
+    });
+
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `SentinelTwin-Agent-${id}.zip`;
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (filenameMatch && filenameMatch.length === 2) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * GET /api/v1/devices/{device_id}/twin
+   */
+  async getDeviceTwin(id: string): Promise<TwinData> {
+    const { data } = await api.get<TwinData>(
+      `${DEVICES_PREFIX}/${id}/twin`,
+    );
+    return data;
+  },
+
+  /**
+   * POST /api/v1/devices/{device_id}/isolate
+   */
+  async isolateDevice(id: string): Promise<Device> {
+    const { data } = await api.post<Device>(`${DEVICES_PREFIX}/${id}/isolate`);
     return data;
   },
 };

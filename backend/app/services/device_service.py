@@ -6,7 +6,7 @@ from app.models.device import Device
 from app.models.user import User
 from app.repositories.device_repository import DeviceRepository
 from app.schemas.device import (
-    DeviceCreateRequest,
+    DeviceCreateRequest,    
     DeviceUpdateRequest,
 )
 from app.security.device_heartbeat import (
@@ -14,8 +14,13 @@ from app.security.device_heartbeat import (
     hash_heartbeat_token,
     verify_heartbeat_token,
 )
-from datetime import datetime
 
+from datetime import datetime, timedelta
+from app.models.device_enrollment_token import DeviceEnrollmentToken
+from app.security.device_enrollment import (
+    generate_enrollment_token,
+    hash_enrollment_token,
+)
 class DeviceService:
 
     @staticmethod
@@ -23,7 +28,7 @@ class DeviceService:
         db: Session,
         current_user: User,
         request: DeviceCreateRequest,
-    ) -> tuple[Device, str]:
+    ) -> tuple[Device, str, str]:
         existing = DeviceRepository.get_by_identifier(
             db,
             request.device_identifier,
@@ -34,6 +39,7 @@ class DeviceService:
                 "A device with this identifier already exists."
             )
 
+        # Generate the permanent heartbeat credential.
         heartbeat_token = generate_heartbeat_token()
         heartbeat_token_hash = hash_heartbeat_token(
             heartbeat_token
@@ -54,10 +60,26 @@ class DeviceService:
             device,
         )
 
+        db.flush()
+
+        # Generate a short-lived, one-time enrollment credential.
+        enrollment_token = generate_enrollment_token()
+        enrollment_token_hash = hash_enrollment_token(
+            enrollment_token
+        )
+
+        enrollment = DeviceEnrollmentToken(
+            device_id=device.id,
+            token_hash=enrollment_token_hash,
+            expires_at=datetime.utcnow() + timedelta(minutes=30),
+        )
+
+        db.add(enrollment)
+
         db.commit()
         db.refresh(device)
 
-        return device, heartbeat_token
+        return device, heartbeat_token, enrollment_token
 
     @staticmethod
     def heartbeat(
@@ -196,3 +218,26 @@ class DeviceService:
         )
 
         db.commit()
+
+    @staticmethod
+    def isolate(
+        db: Session,
+        current_user: User,
+        device_id: UUID,
+    ) -> Device:
+        device = DeviceRepository.get_by_id(
+            db,
+            device_id,
+            current_user.organization_id,
+        )
+
+        if device is None:
+            raise ValueError("Device not found.")
+
+        device.is_isolated = True
+
+        DeviceRepository.update(db, device)
+        db.commit()
+        db.refresh(device)
+
+        return device

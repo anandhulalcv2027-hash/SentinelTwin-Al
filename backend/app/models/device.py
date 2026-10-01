@@ -65,6 +65,12 @@ class Device(Base, TimestampMixin):
         nullable=False,
     )
 
+    is_isolated: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
     last_seen: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
@@ -80,3 +86,11 @@ class Device(Base, TimestampMixin):
         "Organization",
         back_populates="devices",
     )
+
+
+    enrollment_tokens = relationship(
+    "DeviceEnrollmentToken",
+    back_populates="device",
+    cascade="all, delete-orphan",
+    passive_deletes=True,
+)

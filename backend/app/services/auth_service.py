@@ -198,16 +198,21 @@ class AuthService:
             verification_token,
         )
 
-        # Send the verification link to the user's real email address.
-        verification_url = (
-            f"{settings.frontend_url}/verify-email"
-            f"?token={raw_verification_token}"
-        )
+        # Send verification email when email verification is enabled.
+        if settings.email_verification_required:
+            verification_url = (
+                f"{settings.frontend_url}/verify-email"
+                f"?token={raw_verification_token}"
+            )
 
-        EmailService.send_verification_email(
-            to=user.email,
-            verification_url=verification_url,
-        )
+            EmailService.send_verification_email(
+                to=user.email,
+                verification_url=verification_url,
+            )
+        else:
+            # Development/demo mode: allow registration without
+            # depending on an external email provider.
+            user.email_verified = True
 
         token_response = AuthService._create_token_pair(
             db,
