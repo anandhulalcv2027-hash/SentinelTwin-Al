@@ -36,23 +36,53 @@ class DynamicRiskEngineService:
         # 1. Rule-Based Security Indicators
         rule_score = 0.0
         
-        if telemetry.cpu_usage_percent > 95:
-            rule_score += 15.0
+        if telemetry.cpu_usage_percent > 90:
+            rule_score += 25.0
             rule_info["high_cpu"] = True
             reasons.append(f"CPU usage critically high ({telemetry.cpu_usage_percent}%)")
 
-        if telemetry.memory_usage_percent > 95:
-            rule_score += 15.0
+        if telemetry.memory_usage_percent > 90:
+            rule_score += 25.0
             rule_info["high_memory"] = True
             reasons.append(f"Memory usage critically high ({telemetry.memory_usage_percent}%)")
 
-        if telemetry.failed_logins > 5:
-            rule_score += 40.0
+        # Passive Credential Brute-Force / Authentication Attacks
+        if telemetry.failed_logins >= 15:
+            rule_score += 70.0
             rule_info["brute_force_auth"] = True
             evidence["failed_logins"] = telemetry.failed_logins
-            reasons.append(f"Multiple failed logins detected ({telemetry.failed_logins})")
+            threat_category = "Passive Credential Brute-Force"
+            reasons.append(f"Massive failed logins detected ({telemetry.failed_logins} attempts)")
+        elif telemetry.failed_logins >= 5:
+            rule_score += 45.0
+            rule_info["brute_force_auth"] = True
+            evidence["failed_logins"] = telemetry.failed_logins
+            threat_category = "Authentication Anomaly"
+            reasons.append(f"Multiple failed logins detected ({telemetry.failed_logins} attempts)")
+
+        # Passive Covert Data Exfiltration
+        if telemetry.network_bytes_sent > 100_000_000: # 100MB+ egress
+            rule_score += 65.0
+            rule_info["data_exfiltration"] = True
+            evidence["network_bytes_sent"] = telemetry.network_bytes_sent
+            threat_category = "Passive Covert Data Exfiltration"
+            reasons.append(f"Abnormal outbound data transfer ({telemetry.network_bytes_sent // (1024*1024)} MB sent)")
+        elif telemetry.network_bytes_sent > 25_000_000: # 25MB+ egress
+            rule_score += 35.0
+            rule_info["high_outbound_traffic"] = True
+            evidence["network_bytes_sent"] = telemetry.network_bytes_sent
+            threat_category = "Suspicious Outbound Egress"
+            reasons.append(f"Elevated outbound network traffic ({telemetry.network_bytes_sent // (1024*1024)} MB sent)")
             
-        if telemetry.active_connections > 500:
+        # Network Scanning / Port Reconnaissance / C2 Sockets
+        if telemetry.active_connections > 150:
+            rule_score += 35.0
+            rule_info["network_scanning"] = True
+            evidence["active_connections"] = telemetry.active_connections
+            if not threat_category:
+                threat_category = "Passive Reconnaissance & Port Scan"
+            reasons.append(f"Suspicious number of active network sockets ({telemetry.active_connections} connections)")
+        elif telemetry.active_connections > 75:
             rule_score += 20.0
             rule_info["high_connection_count"] = True
             evidence["active_connections"] = telemetry.active_connections
@@ -69,10 +99,10 @@ class DynamicRiskEngineService:
             
             if len(previous_records) >= 3:
                 avg_conn_past = sum(r.active_connections for r in previous_records[1:]) / (len(previous_records) - 1)
-                if avg_conn_past > 10 and telemetry.active_connections > avg_conn_past * 3:
+                if avg_conn_past > 10 and telemetry.active_connections > avg_conn_past * 2.5:
                     rule_score += 25.0
                     rule_info["connection_spike"] = True
-                    reasons.append(f"Connections tripled compared to recent average ({avg_conn_past:.1f} -> {telemetry.active_connections})")
+                    reasons.append(f"Connections surged vs recent baseline ({avg_conn_past:.1f} -> {telemetry.active_connections})")
         except Exception:
             pass 
 
@@ -81,7 +111,6 @@ class DynamicRiskEngineService:
         # 3. AI Predictions
         source = "endpoint_agent"
         detection_types = []
-        threat_category = None
         
         if rule_score > 0:
             detection_types.append("rule_based")
@@ -101,7 +130,8 @@ class DynamicRiskEngineService:
                 rf_score = 60.0 * rf_conf
                 risk_score += rf_score
                 detection_types.append("ai_prediction")
-                threat_category = "Behavioral Resource Anomaly"
+                if not threat_category:
+                    threat_category = "Behavioral Resource Anomaly"
                 reasons.append(f"AI Classifier detected Attack behavior (Conf: {rf_conf:.2f}, Score: +{rf_score:.1f})")
 
             # Isolation Forest contribution
@@ -135,8 +165,8 @@ class DynamicRiskEngineService:
 
         # 5. Generate Threat Event if Risk is High
         threat_event = None
-        if normalized_risk_score >= 60.0: # Configurable threshold based on normalized scale
-            severity = ThreatSeverity.CRITICAL if normalized_risk_score >= 90.0 else (ThreatSeverity.HIGH if normalized_risk_score >= 70.0 else ThreatSeverity.MEDIUM)
+        if normalized_risk_score >= 50.0: # Detect medium, high, and critical threats
+            severity = ThreatSeverity.CRITICAL if normalized_risk_score >= 85.0 else (ThreatSeverity.HIGH if normalized_risk_score >= 65.0 else ThreatSeverity.MEDIUM)
             
             det_type_str = ",".join(detection_types) if detection_types else "rule_based"
             description = " | ".join(reasons)

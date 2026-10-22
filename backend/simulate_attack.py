@@ -17,6 +17,7 @@ from uuid import UUID
 
 from app.db.session import SessionLocal
 from app.models.device import Device
+from app.models.user import User
 from app.models.organization import Organization
 from app.security.device_heartbeat import hash_heartbeat_token
 
@@ -25,24 +26,36 @@ API_BASE_URL = "http://localhost:8000/api/v1"
 def setup_simulation_device():
     """
     Finds or creates a dedicated simulation device so that your real agent
-    tokens are not disturbed.
+    tokens are not disturbed, ensuring it belongs to your active organization.
     """
     db = SessionLocal()
     try:
+        # Determine active organization (prioritize logged-in user or active devices)
+        target_org_id = None
+        user = db.query(User).filter(User.email == "cvanandhulal790@gmail.com").first()
+        if user and user.organization_id:
+            target_org_id = user.organization_id
+        else:
+            active_device = db.query(Device).filter(Device.name != "Simulated-Victim-Endpoint").first()
+            if active_device and active_device.organization_id:
+                target_org_id = active_device.organization_id
+            else:
+                first_org = db.query(Organization).first()
+                if first_org:
+                    target_org_id = first_org.id
+
+        if not target_org_id:
+            print("[-] Error: No Organization found in database.")
+            return None, None
+
         # Check if a simulation device already exists
         device = db.query(Device).filter(Device.device_identifier == "simulated-victim-01").first()
         
         known_token = "sentineltwin_sim_secret_token_12345"
         
         if not device:
-            # Get the default or first organization
-            org = db.query(Organization).first()
-            if not org:
-                print("[-] Error: No Organization found in database.")
-                return None, None
-                
             device = Device(
-                organization_id=org.id,
+                organization_id=target_org_id,
                 name="Simulated-Victim-Endpoint",
                 device_identifier="simulated-victim-01",
                 description="Dedicated target for security attack simulations",
@@ -56,11 +69,12 @@ def setup_simulation_device():
             db.refresh(device)
             print(f"[+] Created dedicated simulation device: {device.name} ({device.id})")
         else:
-            # Ensure known token hash is set
+            # Ensure known token hash is set and assigned to active org
+            device.organization_id = target_org_id
             device.heartbeat_token_hash = hash_heartbeat_token(known_token)
             device.is_active = True
             db.commit()
-            print(f"[+] Using simulation device: {device.name} ({device.id})")
+            print(f"[+] Using simulation device: {device.name} ({device.id}) [Org: {target_org_id}]")
             
         return str(device.id), known_token
     finally:
