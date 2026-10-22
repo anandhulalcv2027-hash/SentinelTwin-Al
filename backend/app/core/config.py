@@ -15,11 +15,34 @@ class Settings(BaseSettings):
     api_v1_prefix: str = Field(alias="API_V1_PREFIX")
 
     # PostgreSQL
-    postgres_host: str = Field(alias="POSTGRES_HOST")
-    postgres_port: int = Field(alias="POSTGRES_PORT")
-    postgres_db: str = Field(alias="POSTGRES_DB")
-    postgres_user: str = Field(alias="POSTGRES_USER")
-    postgres_password: str = Field(alias="POSTGRES_PASSWORD")
+    database_url_override: str | None = Field(
+        default=None,
+        alias="DATABASE_URL",
+    )
+    postgres_host: str = Field(
+        default="localhost",
+        alias="POSTGRES_HOST",
+    )
+    postgres_port: int = Field(
+        default=5432,
+        alias="POSTGRES_PORT",
+    )
+    postgres_db: str = Field(
+        default="sentineltwin",
+        alias="POSTGRES_DB",
+    )
+    postgres_user: str = Field(
+        default="postgres",
+        alias="POSTGRES_USER",
+    )
+    postgres_password: str = Field(
+        default="postgres",
+        alias="POSTGRES_PASSWORD",
+    )
+    postgres_sslmode: str | None = Field(
+        default=None,
+        alias="POSTGRES_SSLMODE",
+    )
 
     # Security
     secret_key: str = Field(alias="SECRET_KEY")
@@ -117,11 +140,20 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.database_url_override:
+            url = self.database_url_override.strip()
+            if url.startswith("postgres://"):
+                url = "postgresql+psycopg://" + url[len("postgres://"):]
+            elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+                url = "postgresql+psycopg://" + url[len("postgresql://"):]
+            return url
+
+        ssl_param = f"?sslmode={self.postgres_sslmode}" if self.postgres_sslmode else ""
         return (
             f"postgresql+psycopg://"
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}"
-            f"/{self.postgres_db}"
+            f"/{self.postgres_db}{ssl_param}"
         )
 
     @property
