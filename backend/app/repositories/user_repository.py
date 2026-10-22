@@ -1,3 +1,4 @@
+from datetime import timezone
 from datetime import datetime
 
 from sqlalchemy import select
@@ -345,7 +346,7 @@ class UserRepository:
         ).all()
 
         for token in tokens:
-            token.revoked_at = datetime.utcnow()
+            token.revoked_at = datetime.now(timezone.utc)
 
         return tokens
 

@@ -9,6 +9,7 @@ import httpx
 from dotenv import load_dotenv
 
 from telemetry import collect_telemetry
+from security_telemetry import collect_security_telemetry
 
 
 # ============================================================
@@ -490,6 +491,65 @@ def send_telemetry() -> None:
     )
 
 
+def send_security_telemetry() -> None:
+    """
+    Collect local endpoint security telemetry and send it to the backend.
+    """
+
+    url = (
+        f"{API_URL}/devices/"
+        f"{DEVICE_ID}/security-telemetry"
+    )
+
+    if not DEVICE_HEARTBEAT_TOKEN:
+        raise RuntimeError(
+            "DEVICE_HEARTBEAT_TOKEN is not configured."
+        )
+
+    headers = {
+        "X-Device-Token": (
+            DEVICE_HEARTBEAT_TOKEN
+        ),
+    }
+
+    telemetry = collect_security_telemetry()
+
+    try:
+        with httpx.Client(
+            timeout=15.0
+        ) as client:
+            response = client.post(
+                url,
+                headers=headers,
+                json=telemetry,
+            )
+
+    except httpx.HTTPError as exc:
+        raise RuntimeError(
+            f"Security telemetry network error: {exc}"
+        ) from exc
+
+    if response.status_code == 201:
+        logger.info("SECURITY_TELEMETRY | Successfully sent security telemetry.")
+        return
+
+    if response.status_code == 401:
+        raise PermissionError(
+            "Security telemetry authentication failed."
+        )
+
+    if response.status_code == 404:
+        raise FileNotFoundError(
+            "Device was not found."
+        )
+
+    raise RuntimeError(
+        f"Security telemetry failed: "
+        f"{response.status_code} "
+        f"{response.text}"
+    )
+
+
 # ============================================================
 # Main Agent Loop
 # ============================================================
@@ -552,6 +612,7 @@ def main() -> None:
                     break
                     
                 send_telemetry()
+                send_security_telemetry()
 
                 # Successful communication resets
                 # the retry delay.

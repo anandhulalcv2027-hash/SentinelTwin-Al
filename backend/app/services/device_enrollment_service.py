@@ -1,3 +1,4 @@
+from datetime import timezone
 from datetime import datetime
 from uuid import UUID
 
@@ -33,12 +34,16 @@ class DeviceEnrollmentService:
         if enrollment is None:
             raise ValueError("Invalid enrollment token.")
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if enrollment.used_at is not None:
             raise ValueError("Enrollment token has already been used.")
 
-        if enrollment.expires_at <= now:
+        expires_at = enrollment.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at <= now:
             raise ValueError("Enrollment token has expired.")
 
         device = db.scalar(

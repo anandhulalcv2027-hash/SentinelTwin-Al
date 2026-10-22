@@ -37,7 +37,7 @@ export function SystemSettings() {
       <div className="st-card">
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Advanced Diagnostic Logs</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-          Download system diagnostic logs for troubleshooting. (Backend API pending)
+          Download system diagnostic logs for troubleshooting. 
         </p>
         <button type="button" className="st-btn-outline" disabled>
           Download Logs

@@ -454,6 +454,98 @@ export function TelemetrySection({
                 />
               </div>
             </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--color-text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Network (Sent / Recv)
+              </div>
+              <div
+                style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                }}
+              >
+                {(telemetry.network_bytes_sent / 1024 / 1024).toFixed(1)} MB / {(telemetry.network_bytes_recv / 1024 / 1024).toFixed(1)} MB
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--color-text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Connections
+              </div>
+              <div
+                style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                }}
+              >
+                {telemetry.active_connections}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--color-text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Processes
+              </div>
+              <div
+                style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                }}
+              >
+                {telemetry.process_count}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--color-text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Failed Logins
+              </div>
+              <div
+                style={{
+                  fontSize: '0.9rem',
+                  color: telemetry.failed_logins > 0 ? 'var(--color-danger)' : 'var(--color-text-primary)',
+                  fontWeight: 500,
+                }}
+              >
+                {telemetry.failed_logins}
+              </div>
+            </div>
           </div>
 
           {/* Telemetry metrics */}

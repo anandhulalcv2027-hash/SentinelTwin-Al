@@ -1,3 +1,4 @@
+from datetime import timezone
 from datetime import datetime
 
 from sqlalchemy import select
@@ -93,7 +94,7 @@ class AlertService:
             return alert
             
         alert.status = "resolved"
-        alert.resolved_at = datetime.utcnow()
+        alert.resolved_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(alert)
         return alert
@@ -145,3 +146,45 @@ class AlertService:
         if existing_alert is not None:
             existing_alert.status = "resolved"
             existing_alert.resolved_at = collected_at
+
+    @staticmethod
+    def process_threat_event(db: Session, threat_event) -> tuple[Alert | None, bool]:
+        """
+        Phase 10: Alert Engine
+        Receives ThreatEvents and determines when user-facing alerts should be generated.
+        Prevents uncontrolled duplicate alerts for the same threat category on the same device.
+        Returns (Alert, is_newly_created).
+        """
+        alert_type = f"threat_{threat_event.threat_category.lower().replace(' ', '_')}" if threat_event.threat_category else "correlated_threat"
+        
+        existing_alert = db.scalar(
+            select(Alert)
+            .where(
+                Alert.device_id == threat_event.device_id,
+                Alert.alert_type == alert_type,
+                Alert.status == "open",
+            )
+            .limit(1)
+        )
+        
+        if existing_alert is not None:
+            if threat_event.risk_score > (existing_alert.metric_value or 0):
+                existing_alert.metric_value = float(threat_event.risk_score)
+                existing_alert.severity = threat_event.severity.value.lower()
+                existing_alert.message = f"Escalated Risk Score: {threat_event.risk_score:.1f}. {threat_event.description}"
+                return existing_alert, False
+            return None, False
+
+        alert = Alert(
+            organization_id=threat_event.organization_id,
+            device_id=threat_event.device_id,
+            alert_type=alert_type,
+            severity=threat_event.severity.value.lower(),
+            title=f"Security Threat: {threat_event.threat_category or 'Correlated Indicators'}",
+            message=f"Risk Score: {threat_event.risk_score:.1f}. {threat_event.description}",
+            metric_value=float(threat_event.risk_score),
+            status="open",
+        )
+        
+        db.add(alert)
+        return alert, True

@@ -59,6 +59,36 @@ class DeviceTelemetry(Base):
         nullable=False,
     )
 
+    network_bytes_sent: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    network_bytes_recv: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    active_connections: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    process_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    failed_logins: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
     agent_version: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

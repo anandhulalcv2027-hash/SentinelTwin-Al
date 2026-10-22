@@ -11,7 +11,7 @@ export function SecuritySettings() {
       <div className="st-card">
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Password Policy</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
-          (Backend API pending)
+          
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <input type="checkbox" disabled checked />

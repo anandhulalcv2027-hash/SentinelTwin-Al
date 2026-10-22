@@ -1,3 +1,4 @@
+from datetime import timezone
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -71,7 +72,7 @@ class DeviceService:
         enrollment = DeviceEnrollmentToken(
             device_id=device.id,
             token_hash=enrollment_token_hash,
-            expires_at=datetime.utcnow() + timedelta(minutes=30),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
         )
 
         db.add(enrollment)
@@ -113,7 +114,7 @@ class DeviceService:
                 "Invalid device heartbeat token."
             )
 
-        device.last_seen = datetime.utcnow()
+        device.last_seen = datetime.now(timezone.utc)
 
         DeviceRepository.update(
             db,

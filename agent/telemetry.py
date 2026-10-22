@@ -22,6 +22,15 @@ def collect_telemetry() -> dict:
     boot_time = psutil.boot_time()
     uptime_seconds = int(time.time() - boot_time)
 
+    net_io = psutil.net_io_counters()
+    
+    try:
+        active_connections = len(psutil.net_connections(kind='inet'))
+    except psutil.AccessDenied:
+        active_connections = 0
+
+    process_count = len(psutil.pids())
+
     return {
         "hostname": socket.gethostname(),
         "operating_system": platform.system(),
@@ -32,6 +41,10 @@ def collect_telemetry() -> dict:
         "memory_usage_percent": memory.percent,
         "disk_usage_percent": disk.percent,
         "uptime_seconds": uptime_seconds,
+        "network_bytes_sent": net_io.bytes_sent,
+        "network_bytes_recv": net_io.bytes_recv,
+        "active_connections": active_connections,
+        "process_count": process_count,
         "agent_version": AGENT_VERSION,
     }
 

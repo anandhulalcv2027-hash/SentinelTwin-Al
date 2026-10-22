@@ -11,7 +11,7 @@ export function OrganizationSettings() {
       <div className="st-card">
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Organization Details</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
-          (Backend API pending)
+          
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px' }}>
           <div>

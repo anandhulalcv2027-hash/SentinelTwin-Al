@@ -7,6 +7,10 @@ from app.api.v1.endpoints.user import router as user_router
 from app.api.v1.endpoints.alert import router as alert_router
 from app.api.v1.endpoints.websocket import router as websocket_router
 from app.api.v1.endpoints.threat import router as threat_router
+from app.api.v1.endpoints.incidents import router as incident_router
+from app.api.v1.endpoints.analytics import router as analytics_router
+from app.api.v1.endpoints.reports import router as reports_router
+from app.api.v1.endpoints.settings import router as settings_router
 
 api_router = APIRouter()
 
@@ -17,3 +21,7 @@ api_router.include_router(role_router)
 api_router.include_router(alert_router)
 api_router.include_router(websocket_router)
 api_router.include_router(threat_router)
+api_router.include_router(incident_router, prefix="/incidents", tags=["Incidents"])
+api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
+api_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
+api_router.include_router(settings_router, prefix="/settings", tags=["Settings"])

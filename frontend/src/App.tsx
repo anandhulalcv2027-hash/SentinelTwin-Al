@@ -13,6 +13,9 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { AlertsPage } from '@/pages/AlertsPage';
 import { SOCDashboardPage } from '@/pages/SOCDashboardPage';
+import { IncidentsPage } from '@/pages/IncidentsPage';
+import { AnalyticsPage } from '@/pages/AnalyticsPage';
+import { TopologyPage } from '@/pages/TopologyPage';
 
 // Settings Pages
 import { SettingsLayout } from '@/layouts/SettingsLayout';
@@ -53,6 +56,9 @@ export function App() {
               <Route path="/app/endpoints" element={<EndpointsPage />} />
               <Route path="/app/users" element={<UsersPage />} />
               <Route path="/app/alerts" element={<AlertsPage />} />
+              <Route path="/app/incidents" element={<IncidentsPage />} />
+              <Route path="/app/analytics" element={<AnalyticsPage />} />
+              <Route path="/app/topology" element={<TopologyPage />} />
               <Route path="/app/soc" element={<SOCDashboardPage />} />
               
               {/* Settings routes */}

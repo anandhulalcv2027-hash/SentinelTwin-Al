@@ -199,7 +199,7 @@ def create_device_telemetry(
         )
 
     try:
-        telemetry, threat_event = DeviceTelemetryService.create(
+        telemetry, threat_event, alert, is_alert_new = DeviceTelemetryService.create(
             db,
             device_id,
             x_device_token,
@@ -243,9 +243,6 @@ def create_device_telemetry(
         if threat_event:
             from app.schemas.threat_event import ThreatEventResponse
             threat_payload = ThreatEventResponse.model_validate(threat_event)
-            # We don't have device.name easily here unless we query it, but we can just omit it or pass empty
-            # Actually device is inside DeviceTelemetryService, but we only have device_id here.
-            # We can leave device_name as None, frontend can map it if needed.
             background_tasks.add_task(
                 websocket_manager.broadcast_to_organization,
                 organization_id,
@@ -253,6 +250,28 @@ def create_device_telemetry(
                     "type": "threat.detected",
                     "device_id": str(device_id),
                     "threat": threat_payload.model_dump(mode="json"),
+                },
+            )
+            
+        if alert:
+            # We don't have a Pydantic schema for Alert readily available to dump, we can just build a dict
+            alert_payload = {
+                "id": str(alert.id),
+                "device_id": str(alert.device_id),
+                "alert_type": alert.alert_type,
+                "severity": alert.severity,
+                "title": alert.title,
+                "message": alert.message,
+                "metric_value": alert.metric_value,
+                "status": alert.status
+            }
+            background_tasks.add_task(
+                websocket_manager.broadcast_to_organization,
+                organization_id,
+                {
+                    "type": "alert.created" if is_alert_new else "alert.updated",
+                    "device_id": str(device_id),
+                    "alert": alert_payload,
                 },
             )
 
@@ -267,6 +286,78 @@ def create_device_telemetry(
     except PermissionError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+from app.schemas.security_telemetry import SecurityTelemetryRequest, SecurityTelemetryResponse
+from app.services.security_telemetry_service import SecurityTelemetryService
+
+@router.post(
+    "/{device_id}/security-telemetry",
+    response_model=SecurityTelemetryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_device_security_telemetry(
+    device_id: UUID,
+    request: SecurityTelemetryRequest,
+    background_tasks: BackgroundTasks,
+    x_device_token: str | None = Header(
+        default=None,
+        alias="X-Device-Token",
+    ),
+    db: Session = Depends(get_db),
+):
+    if not x_device_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Device heartbeat token is required.",
+        )
+
+    try:
+        telemetry = SecurityTelemetryService.create(
+            db,
+            device_id,
+            x_device_token,
+            request,
+        )
+        return telemetry
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+@router.get(
+    "/{device_id}/security-telemetry/latest",
+    response_model=SecurityTelemetryResponse,
+)
+def get_latest_device_security_telemetry(
+    device_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        DeviceService.get(
+            db,
+            current_user,
+            device_id,
+        )
+
+        return SecurityTelemetryService.get_latest(
+            db,
+            device_id,
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
 
@@ -367,6 +458,7 @@ def heartbeat_device(
             detail="Device heartbeat token is required.",
         )
 
+    print("DEBUG: heartbeat_device called with", device_id, type(device_id))
     try:
         device = DeviceService.heartbeat(
             db,
@@ -378,6 +470,7 @@ def heartbeat_device(
             device_id=device.id,
             status="online",
             last_seen=device.last_seen,
+            is_isolated=device.is_isolated,
         )
 
     except ValueError as e:

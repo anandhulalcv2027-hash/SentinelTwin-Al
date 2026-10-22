@@ -3,11 +3,20 @@ import api from '@/lib/api';
 export interface ThreatEvent {
   id: string;
   device_id: string;
-  device_name: string | null;
-  threat_type: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  description: string | null;
+  organization_id: string;
+  source: string;
+  detection_type: string;
+  threat_category?: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  risk_score: number;
+  status: string;
+  classifier_info?: Record<string, any>;
+  anomaly_info?: Record<string, any>;
+  rule_info?: Record<string, any>;
+  evidence_context?: Record<string, any>;
+  description?: string;
   detected_at: string;
+  device_name?: string;
 }
 
 export interface ThreatEventListResponse {

@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Enum, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm import relationship
 
@@ -45,6 +45,12 @@ class Organization(Base, TimestampMixin):
         ),
         default=OrganizationStatus.ACTIVE,
         nullable=False,
+    )
+
+    settings: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default={"anomaly_threshold": 0.8, "alert_retention_days": 30}
     )
     users = relationship(
     "User",

@@ -111,6 +111,28 @@ class DeviceTelemetryRequest(BaseModel):
         ge=0,
     )
 
+    network_bytes_sent: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    network_bytes_recv: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    active_connections: int = Field(
+        default=0,
+        ge=0,
+    )
+
+    process_count: int = Field(
+        default=0,
+        ge=0,
+    )
+
+
+
     agent_version: str = Field(
         min_length=1,
         max_length=50,
@@ -129,5 +151,10 @@ class DeviceTelemetryResponse(BaseModel):
     memory_usage_percent: float
     disk_usage_percent: float
     uptime_seconds: int
+    network_bytes_sent: int
+    network_bytes_recv: int
+    active_connections: int
+    process_count: int
+    failed_logins: int
     agent_version: str
     collected_at: datetime

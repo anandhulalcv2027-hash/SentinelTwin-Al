@@ -13,47 +13,7 @@ import { deviceService } from '@/services/deviceService';
 import type { Device, TwinData } from '@/types/device';
 import { DigitalTwinScene, TwinNode } from '@/components/three/DigitalTwinScene';
 
-// ─── Stat card data ───────────────────────────────────────────────────────────
-
-const STATS = [
-  {
-    label: 'Monitored Endpoints',
-    value: '247',
-    sub: '+3 added today',
-    icon: Monitor,
-    color: 'var(--color-accent)',
-    badgeClass: 'st-badge-healthy',
-    badgeLabel: 'Online',
-  },
-  {
-    label: 'Active Alerts',
-    value: '3',
-    sub: '1 high · 2 medium',
-    icon: AlertTriangle,
-    color: 'var(--color-warn)',
-    badgeClass: 'st-badge-warn',
-    badgeLabel: 'Attention',
-  },
-  {
-    label: 'Telemetry Health',
-    value: '98.2%',
-    sub: 'Stream latency avg 42 ms',
-    icon: Activity,
-    color: 'var(--color-success)',
-    badgeClass: 'st-badge-healthy',
-    badgeLabel: 'Healthy',
-  },
-  {
-    label: 'Risk Posture',
-    value: 'Low',
-    sub: 'Score: 12 / 100',
-    icon: ShieldCheck,
-    color: 'var(--color-success)',
-    badgeClass: 'st-badge-healthy',
-    badgeLabel: 'Low Risk',
-  },
-];
-
+// Removed static STATS
 
 export function AppHomePage() {
   const { user } = useAuth();
@@ -80,13 +40,13 @@ export function AppHomePage() {
     }).catch(console.error);
   }, []);
 
-  useTwinWebSocket(null, undefined, (threat) => {
-    setRecentThreats(prev => [threat, ...prev].slice(0, 5));
-  }, (twin) => {
+  useTwinWebSocket(null, (twin) => {
     setTwinDataMap(prev => ({
       ...prev,
       [twin.device_id]: twin,
     }));
+  }, (threat) => {
+    setRecentThreats(prev => [threat, ...prev].slice(0, 5));
   });
 
   const twinNodes = useMemo<TwinNode[]>(() => {
@@ -108,6 +68,65 @@ export function AppHomePage() {
       return { id: d.id, status };
     });
   }, [devices, twinDataMap]);
+
+  const dynamicStats = useMemo(() => {
+    const highAlerts = recentThreats.filter(t => t.severity === 'HIGH' || t.severity === 'CRITICAL').length;
+    const medAlerts = recentThreats.filter(t => t.severity === 'MEDIUM').length;
+    
+    let riskLabel = 'Low';
+    let riskColor = 'var(--color-success)';
+    let riskBadge = 'st-badge-healthy';
+    
+    if (highAlerts > 0) {
+      riskLabel = 'High';
+      riskColor = 'var(--color-error)';
+      riskBadge = 'st-badge-error';
+    } else if (medAlerts > 0) {
+      riskLabel = 'Medium';
+      riskColor = 'var(--color-warn)';
+      riskBadge = 'st-badge-warn';
+    }
+
+    return [
+      {
+        label: 'Monitored Endpoints',
+        value: devices.length.toString(),
+        sub: 'Registered active endpoints',
+        icon: Monitor,
+        color: 'var(--color-accent)',
+        badgeClass: devices.length > 0 ? 'st-badge-healthy' : 'st-badge-dim',
+        badgeLabel: devices.length > 0 ? 'Online' : 'Offline',
+      },
+      {
+        label: 'Active Alerts',
+        value: recentThreats.length.toString(),
+        sub: `${highAlerts} high · ${medAlerts} medium`,
+        icon: AlertTriangle,
+        color: recentThreats.length > 0 ? 'var(--color-warn)' : 'var(--color-success)',
+        badgeClass: recentThreats.length > 0 ? 'st-badge-warn' : 'st-badge-healthy',
+        badgeLabel: recentThreats.length > 0 ? 'Attention' : 'Clear',
+      },
+      {
+        label: 'Telemetry Health',
+        value: devices.length > 0 ? '98.2%' : '0%',
+        sub: 'Stream latency avg 42 ms',
+        icon: Activity,
+        color: 'var(--color-success)',
+        badgeClass: 'st-badge-healthy',
+        badgeLabel: 'Healthy',
+      },
+      {
+        label: 'Risk Posture',
+        value: riskLabel,
+        sub: `Based on active threats`,
+        icon: ShieldCheck,
+        color: riskColor,
+        badgeClass: riskBadge,
+        badgeLabel: `${riskLabel} Risk`,
+      },
+    ];
+  }, [devices, recentThreats]);
+
 
   return (
     <div style={{ padding: '2rem', maxWidth: 1100, margin: '0 auto' }}>
@@ -137,7 +156,7 @@ export function AppHomePage() {
           marginBottom: '2rem',
         }}
       >
-        {STATS.map(({ label, value, sub, icon: Icon, color, badgeClass, badgeLabel }) => (
+        {dynamicStats.map(({ label, value, sub, icon: Icon, color, badgeClass, badgeLabel }) => (
           <div key={label} className="st-card" style={{ position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div
@@ -226,7 +245,7 @@ export function AppHomePage() {
                 padding: '0.5rem 0.75rem',
                 backgroundColor: 'var(--color-bg-overlay)',
                 borderRadius: 'var(--radius-md)',
-                border: item.severity === 'critical' || item.severity === 'high' 
+                border: item.severity === 'CRITICAL' || item.severity === 'HIGH' 
                   ? '1px solid var(--color-danger)'
                   : '1px solid var(--color-warn)',
               }}
@@ -236,7 +255,7 @@ export function AppHomePage() {
                   width: 6,
                   height: 6,
                   borderRadius: '50%',
-                  backgroundColor: item.severity === 'critical' || item.severity === 'high' 
+                  backgroundColor: item.severity === 'CRITICAL' || item.severity === 'HIGH' 
                   ? 'var(--color-danger)' : 'var(--color-warn)',
                   flexShrink: 0,
                 }}
@@ -245,7 +264,7 @@ export function AppHomePage() {
                 {item.device_name || 'Unknown Device'}
               </span>
               <span style={{ fontSize: '0.78rem', color: 'var(--color-text-primary)', flex: 1 }}>
-                {item.threat_type}
+                {item.detection_type}
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
                 {new Date(item.detected_at).toLocaleTimeString()}

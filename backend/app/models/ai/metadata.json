@@ -1,0 +1,60 @@
+{
+    "dataset_source": "TON_IoT_Windows_10",
+    "timestamp": "2026-10-02T11:48:19.074410",
+    "feature_schema": [
+        "cpu_usage_percent",
+        "memory_usage_percent",
+        "disk_usage_percent",
+        "network_tx_rate",
+        "network_rx_rate"
+    ],
+    "preprocessing": "StandardScaler (fit on 70% train)",
+    "random_forest": {
+        "version": "v1",
+        "parameters": {
+            "bootstrap": true,
+            "ccp_alpha": 0.0,
+            "class_weight": null,
+            "criterion": "gini",
+            "max_depth": 10,
+            "max_features": "sqrt",
+            "max_leaf_nodes": null,
+            "max_samples": null,
+            "min_impurity_decrease": 0.0,
+            "min_samples_leaf": 1,
+            "min_samples_split": 2,
+            "min_weight_fraction_leaf": 0.0,
+            "monotonic_cst": null,
+            "n_estimators": 100,
+            "n_jobs": -1,
+            "oob_score": false,
+            "random_state": 42,
+            "verbose": 0,
+            "warm_start": false
+        },
+        "metrics_test": {
+            "accuracy": 0.9990524320909665,
+            "f1_score": 0.9990988284770201,
+            "roc_auc": 0.9999895958383354
+        }
+    },
+    "isolation_forest": {
+        "version": "v1",
+        "parameters": {
+            "bootstrap": false,
+            "contamination": 0.05,
+            "max_features": 1.0,
+            "max_samples": "auto",
+            "n_estimators": 100,
+            "n_jobs": -1,
+            "random_state": 42,
+            "verbose": 0,
+            "warm_start": false
+        },
+        "training_data": "Normal only (from Train set)",
+        "metrics_test": {
+            "accuracy": 0.6070751737207833,
+            "f1_score": 0.44563279857397503
+        }
+    }
+}

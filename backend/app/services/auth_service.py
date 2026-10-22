@@ -1,3 +1,4 @@
+from datetime import timezone
 from datetime import datetime, timedelta, timezone
 
 from google.auth.transport import requests as google_requests
@@ -70,7 +71,7 @@ class AuthService:
             RefreshToken(
                 user_id=user.id,
                 token_hash=hash_refresh_token(refresh_token),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(timezone.utc)
                 + timedelta(days=settings.refresh_token_expire_days),
                 created_by_ip=ip_address,
                 user_agent=user_agent,
@@ -188,7 +189,7 @@ class AuthService:
                 raw_verification_token
             ),
             expires_at=(
-                datetime.utcnow()
+                datetime.now(timezone.utc)
                 + timedelta(minutes=30)
             ),
         )
@@ -255,7 +256,7 @@ class AuthService:
                 "Invalid or expired email verification token."
             )
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if verification_token.used_at is not None:
             raise ValueError(
@@ -325,7 +326,7 @@ class AuthService:
         ):
             raise ValueError("Invalid email or password.")
 
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
 
         token_response = AuthService._create_token_pair(
             db,
@@ -399,7 +400,7 @@ class AuthService:
         if not user.email_verified:
             user.email_verified = True
 
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
 
         token_response = AuthService._create_token_pair(
             db,
@@ -439,7 +440,7 @@ class AuthService:
         if (
             stored_token is None
             or stored_token.revoked_at is not None
-            or stored_token.expires_at <= datetime.utcnow()
+            or stored_token.expires_at <= datetime.now(timezone.utc)
         ):
             raise ValueError("Invalid refresh token.")
 
@@ -451,7 +452,7 @@ class AuthService:
         if user is None or not user.is_active:
             raise ValueError("Invalid refresh token.")
 
-        stored_token.revoked_at = datetime.utcnow()
+        stored_token.revoked_at = datetime.now(timezone.utc)
 
         token_response = AuthService._create_token_pair(
             db,
@@ -491,7 +492,7 @@ class AuthService:
                 stored_token is not None
                 and stored_token.user_id == user.id
             ):
-                stored_token.revoked_at = datetime.utcnow()
+                stored_token.revoked_at = datetime.now(timezone.utc)
 
         AuthService._audit(
             db,

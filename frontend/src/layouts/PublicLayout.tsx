@@ -24,8 +24,10 @@ function PublicNav() {
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        backgroundColor: 'var(--color-bg-surface)',
-        borderBottom: '1px solid var(--color-border)',
+        backgroundColor: 'var(--color-glass-bg)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '1px solid var(--color-glass-border)',
         padding: '0 1.5rem',
       }}
     >
@@ -45,16 +47,30 @@ function PublicNav() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.8rem',
             textDecoration: 'none',
-            color: 'var(--color-text-primary)',
-            fontWeight: 700,
-            fontSize: '1rem',
-            letterSpacing: '-0.01em',
           }}
         >
-          <Shield size={20} color="var(--color-accent)" />
-          SentinelTwin<span style={{ color: 'var(--color-accent)' }}>&nbsp;AI</span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, var(--color-accent) 0%, #a855f7 100%)',
+            boxShadow: '0 0 12px rgba(99, 102, 241, 0.3)',
+          }}>
+            <Shield size={18} color="#ffffff" />
+          </div>
+          <span style={{
+            color: 'var(--color-text-primary)',
+            fontWeight: 800,
+            fontSize: '1.05rem',
+            letterSpacing: '-0.02em',
+          }}>
+            SentinelTwin<span style={{ color: 'var(--color-accent)' }}>&nbsp;AI</span>
+          </span>
         </Link>
 
         {/* Centre nav links */}

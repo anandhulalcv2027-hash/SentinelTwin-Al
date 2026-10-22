@@ -1,29 +1,47 @@
 import {
-  Monitor,
   AlertTriangle,
   Activity,
   ShieldCheck,
   Server,
   Network,
+  Shield,
+  Bell
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useTwinWebSocket } from '@/hooks/useTwinWebSocket';
 import { threatService, ThreatEvent } from '@/services/threatService';
 import { deviceService } from '@/services/deviceService';
+import { incidentService } from '@/services/incidentService';
+import api from '@/lib/api';
 import type { Device, TwinData } from '@/types/device';
+import { Incident } from '@/types/incident';
 import { DigitalTwinScene, TwinNode } from '@/components/three/DigitalTwinScene';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
 
 export function SOCDashboardPage() {
   const [recentThreats, setRecentThreats] = useState<ThreatEvent[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [twinDataMap, setTwinDataMap] = useState<Record<string, TwinData>>({});
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  
+  // Real-time charting data
+  const [networkData, setNetworkData] = useState<any[]>([]);
 
   useEffect(() => {
-    // Poll threats and devices
+    // Poll data
     const fetchData = () => {
-      threatService.getRecentThreats(15).then(res => {
-        setRecentThreats(res.items);
-      }).catch(console.error);
+      threatService.getRecentThreats(15).then(res => setRecentThreats(res.items)).catch(console.error);
+      incidentService.getIncidents('OPEN').then(res => setIncidents(res)).catch(console.error);
+      api.get('/alerts/?status=open').then(res => setAlerts(res.data)).catch(console.error);
       
       deviceService.getDevices().then(res => {
         setDevices(res.items);
@@ -44,13 +62,23 @@ export function SOCDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  useTwinWebSocket(null, undefined, (threat) => {
-    setRecentThreats(prev => [threat, ...prev].slice(0, 15));
-  }, (twin) => {
+  useTwinWebSocket(null, (twin) => {
     setTwinDataMap(prev => ({
       ...prev,
       [twin.device_id]: twin,
     }));
+    if ((twin as any).telemetry) {
+        setNetworkData(prev => {
+          const newPoint = {
+            time: new Date().toLocaleTimeString(),
+            tx: (twin as any).telemetry.network_tx_bytes_sec || 0,
+            rx: (twin as any).telemetry.network_rx_bytes_sec || 0
+          };
+          return [...prev.slice(-19), newPoint]; // Keep last 20 points
+        });
+    }
+  }, (threat) => {
+    setRecentThreats(prev => [threat, ...prev].slice(0, 15));
   });
 
   const twinNodes = useMemo<TwinNode[]>(() => {
@@ -76,21 +104,28 @@ export function SOCDashboardPage() {
   const stats = useMemo(() => {
     const total = devices.length;
     const active = devices.filter(d => twinDataMap[d.id]?.health_status === 'healthy').length;
-    const threats = recentThreats.filter(t => t.severity === 'critical' || t.severity === 'high').length;
-    return { total, active, threats };
+    const criticalThreats = recentThreats.filter(t => t.severity === 'CRITICAL' || t.severity === 'HIGH').length;
+    return { total, active, threats: criticalThreats };
   }, [devices, twinDataMap, recentThreats]);
 
+  const getThreatLabel = (t: ThreatEvent) => {
+    if (t.detection_type.includes('ai_prediction')) return 'AI CLASSIFICATION';
+    if (t.detection_type.includes('anomaly_detection')) return 'ANOMALY';
+    if (t.detection_type.includes('rule_based')) return 'SECURITY RULE';
+    return 'THREAT';
+  };
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#09090b', color: '#f4f4f5', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', overflow: 'hidden' }}>
       
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <header style={{ 
         padding: '1rem 1.5rem', 
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        borderBottom: '1px solid var(--color-border)',
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        backgroundColor: '#000'
+        backgroundColor: 'var(--color-bg-secondary)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <ShieldCheck size={28} color="#22d3ee" />
@@ -98,8 +133,8 @@ export function SOCDashboardPage() {
             <h1 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
               SOC Command Center
             </h1>
-            <div style={{ fontSize: '0.75rem', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--color-success)', boxShadow: '0 0 8px var(--color-success)' }} />
               LIVE TELEMETRY STREAM
             </div>
           </div>
@@ -107,6 +142,8 @@ export function SOCDashboardPage() {
         <div style={{ display: 'flex', gap: '2rem' }}>
           <StatBox label="Total Endpoints" value={stats.total} icon={<Server size={16} />} color="#22d3ee" />
           <StatBox label="Active Agents" value={stats.active} icon={<Activity size={16} />} color="#22c55e" />
+          <StatBox label="Open Incidents" value={incidents.length} icon={<Shield size={16} />} color="#f97316" />
+          <StatBox label="Open Alerts" value={alerts.length} icon={<Bell size={16} />} color="#eab308" />
           <StatBox label="Critical Threats" value={stats.threats} icon={<AlertTriangle size={16} />} color="#ef4444" />
         </div>
       </header>
@@ -114,77 +151,96 @@ export function SOCDashboardPage() {
       {/* ── Main Layout ─────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 380px', overflow: 'hidden' }}>
         
-        {/* Left: 3D Twin & Geographic map (Centerpiece) */}
-        <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.1)', position: 'relative' }}>
+        {/* Left: 3D Twin & Chart */}
+        <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)', position: 'relative' }}>
           <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
+             <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
                Global Network Topology
              </h2>
-             <p style={{ fontSize: '0.8rem', color: '#a1a1aa', marginTop: '0.2rem' }}>
+             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '0.2rem' }}>
                Real-time digital twin rendering
              </p>
           </div>
           
-          <div style={{ flex: 1, position: 'relative', background: 'radial-gradient(circle at center, #18181b 0%, #000 100%)' }}>
+          <div style={{ flex: 1, position: 'relative', background: 'radial-gradient(circle at center, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%)' }}>
             <DigitalTwinScene nodes={twinNodes.length > 0 ? twinNodes : undefined} />
           </div>
           
-          {/* Bottom Panel (System metrics) */}
-          <div style={{ height: '220px', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '1rem', display: 'flex', gap: '1rem', backgroundColor: '#000' }}>
-            <div style={{ flex: 1, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '1rem', background: '#09090b' }}>
-              <h3 style={{ fontSize: '0.8rem', color: '#a1a1aa', textTransform: 'uppercase', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Network size={14} /> Network Traffic Volume
+          {/* Bottom Panel (Live Charts) */}
+          <div style={{ height: '220px', borderTop: '1px solid var(--color-border)', padding: '1rem', display: 'flex', gap: '1rem', backgroundColor: 'var(--color-bg-secondary)' }}>
+            <div style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: 8, padding: '1rem', background: 'var(--color-bg-primary)', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Network size={14} /> Live Network Traffic (Bytes/sec)
               </h3>
-              {/* Fake chart bars */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '120px' }}>
-                {Array.from({ length: 40 }).map((_, i) => (
-                  <div key={i} style={{ 
-                    flex: 1, 
-                    backgroundColor: i % 7 === 0 ? '#ef4444' : '#22d3ee', 
-                    opacity: 0.6,
-                    height: `${20 + Math.random() * 80}%`,
-                    borderRadius: '2px 2px 0 0',
-                    transition: 'height 0.5s ease'
-                  }} />
-                ))}
+              <div style={{ flex: 1 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={networkData}>
+                    <defs>
+                      <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="time" stroke="var(--color-text-secondary)" fontSize={10} tick={{fill: 'var(--color-text-muted)'}} />
+                    <YAxis stroke="var(--color-text-secondary)" fontSize={10} tickFormatter={(val) => `${(val/1024).toFixed(0)}k`} />
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', fontSize: '12px' }} />
+                    <Area type="monotone" dataKey="tx" stroke="#22d3ee" fillOpacity={1} fill="url(#colorTx)" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="rx" stroke="#818cf8" fillOpacity={1} fill="url(#colorRx)" isAnimationActive={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
         </div>
 
         {/* Right: Live Threat Feed */}
-        <div style={{ backgroundColor: '#000', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-               <AlertTriangle size={18} color="#ef4444" /> Live Threat Feed
+        <div style={{ backgroundColor: 'var(--color-bg-secondary)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)' }}>
+             <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+               <AlertTriangle size={18} color="var(--color-error)" /> Live Threat Feed
              </h2>
           </div>
           
           <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {recentThreats.length === 0 ? (
-              <div style={{ color: '#71717a', fontSize: '0.9rem', textAlign: 'center', marginTop: '2rem' }}>
+              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', textAlign: 'center', marginTop: '2rem' }}>
                 No active threats detected.
               </div>
             ) : recentThreats.map((threat) => (
               <div key={threat.id} style={{
                 padding: '0.75rem',
-                backgroundColor: 'rgba(255,255,255,0.03)',
-                borderLeft: `3px solid ${threat.severity === 'critical' ? '#ef4444' : threat.severity === 'high' ? '#f97316' : '#eab308'}`,
+                backgroundColor: 'var(--color-bg-primary)',
+                borderLeft: `3px solid ${threat.severity === 'CRITICAL' ? 'var(--color-error)' : threat.severity === 'HIGH' ? 'var(--color-warn)' : 'var(--color-accent)'}`,
                 borderRadius: '0 4px 4px 0',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.3rem',
-                animation: 'fade-in 0.5s ease'
+                animation: 'fade-in 0.5s ease',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                border: '1px solid var(--color-border)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e4e4e7' }}>{threat.threat_type}</span>
-                  <span style={{ fontSize: '0.7rem', color: '#71717a' }}>{new Date(threat.detected_at).toLocaleTimeString()}</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>{threat.threat_category}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>{new Date(threat.detected_at).toLocaleTimeString()}</span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#a1a1aa', fontFamily: 'monospace' }}>
-                  Target: {threat.device_name || threat.device_id.split('-')[0]}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', backgroundColor: 'var(--color-bg-secondary)', borderRadius: '4px', color: 'var(--color-text-primary)' }}>
+                    {getThreatLabel(threat)}
+                  </span>
+                  <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', backgroundColor: 'var(--color-error-muted)', color: 'var(--color-error)', borderRadius: '4px' }}>
+                    RISK SCORE: {threat.risk_score.toFixed(1)}
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: threat.severity === 'critical' ? '#ef4444' : '#f97316' }}>
-                  Confidence: {(threat.confidence_score * 100).toFixed(1)}%
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'monospace', marginTop: '0.2rem' }}>
+                  Target: {threat.device_id.split('-')[0]}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                  {threat.description}
                 </div>
               </div>
             ))}
@@ -199,10 +255,10 @@ export function SOCDashboardPage() {
 function StatBox({ label, value, icon, color }: { label: string, value: string | number, icon: React.ReactNode, color: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-      <div style={{ fontSize: '0.7rem', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         <span style={{ color }}>{icon}</span> {label}
       </div>
-      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-text-primary)', lineHeight: 1 }}>
         {value}
       </div>
     </div>

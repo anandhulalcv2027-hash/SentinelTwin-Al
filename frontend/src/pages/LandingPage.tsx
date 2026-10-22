@@ -78,16 +78,22 @@ export function LandingPage() {
 
           <h1
             style={{
-              fontSize: 'clamp(2rem, 4vw, 3.25rem)',
+              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
               fontWeight: 800,
-              lineHeight: 1.15,
+              lineHeight: 1.1,
               color: 'var(--color-text-primary)',
               letterSpacing: '-0.03em',
               marginBottom: '1.25rem',
             }}
           >
             Your endpoints,<br />
-            <span style={{ color: 'var(--color-accent)' }}>mirrored and monitored</span><br />
+            <span style={{ 
+              background: 'linear-gradient(to right, var(--color-accent), #a855f7)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              display: 'inline-block',
+              filter: 'drop-shadow(0 0 20px rgba(99, 102, 241, 0.4))'
+            }}>mirrored and monitored</span><br />
             in real time.
           </h1>
 
@@ -134,12 +140,14 @@ export function LandingPage() {
         {/* Right — Three.js scene */}
         <div
           style={{
-            height: 440,
+            height: 480,
             position: 'relative',
-            borderRadius: 'var(--radius-xl)',
+            borderRadius: '24px',
             overflow: 'hidden',
-            backgroundColor: 'var(--color-bg-surface)',
-            border: '1px solid var(--color-border)',
+            background: 'var(--color-glass-card)',
+            border: '1px solid var(--color-glass-border)',
+            boxShadow: '0 20px 40px -10px var(--color-glass-shadow), 0 0 30px rgba(99, 102, 241, 0.1) inset',
+            backdropFilter: 'blur(10px)',
           }}
           className="hero-scene"
         >
@@ -200,35 +208,36 @@ export function LandingPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: '1px',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-lg)',
-              overflow: 'hidden',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '1.5rem',
             }}
           >
             {CAPABILITIES.map(({ icon: Icon, title, body }) => (
               <div
                 key={title}
+                className="st-card"
                 style={{
-                  padding: '1.75rem 1.5rem',
-                  backgroundColor: 'var(--color-bg-elevated)',
-                  borderRight: '1px solid var(--color-border)',
+                  padding: '2rem 1.5rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
                 }}
               >
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--color-accent-dim)',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '1rem',
+                    marginBottom: '1.25rem',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                   }}
                 >
-                  <Icon size={18} color="var(--color-accent)" />
+                  <Icon size={24} color="var(--color-accent)" />
                 </div>
                 <h3
                   style={{

@@ -46,6 +46,11 @@ export interface DeviceTelemetry {
   memory_usage_percent: number;
   disk_usage_percent: number;
   uptime_seconds: number;
+  network_bytes_sent: number;
+  network_bytes_recv: number;
+  active_connections: number;
+  process_count: number;
+  failed_logins: number;
   agent_version: string;
   collected_at: string;
 }
@@ -57,6 +62,11 @@ export interface DeviceLiveState {
   cpu_usage_percent: number;
   memory_usage_percent: number;
   disk_usage_percent: number;
+  network_bytes_sent: number;
+  network_bytes_recv: number;
+  active_connections: number;
+  process_count: number;
+  failed_logins: number;
   last_updated: string;
 }
 

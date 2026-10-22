@@ -1,3 +1,4 @@
+from datetime import timezone
 import io
 import zipfile
 from datetime import datetime, timedelta
@@ -58,7 +59,7 @@ class AgentPackageService:
             .all()
         )
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         for token in existing_tokens:
             token.used_at = now
@@ -79,7 +80,7 @@ class AgentPackageService:
 
         env_content = (
             f"SENTINELTWIN_API_URL="
-            f"{settings.public_api_url.rstrip('/')}/api/v1\n"
+            f"{settings.public_api_url.strip().rstrip('/')}/api/v1\n"
             "\n"
             "DEVICE_ID=\n"
             "DEVICE_HEARTBEAT_TOKEN=\n"

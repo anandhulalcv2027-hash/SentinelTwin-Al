@@ -1,4 +1,5 @@
-import React, { useRef, useMemo, useEffect, useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Sphere, Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -22,10 +23,10 @@ interface NodeDef {
 
 const HUB_POS: [number, number, number] = [0, 0, 0];
 
-const COLOR_HEALTHY = new THREE.Color('#22d3ee');
-const COLOR_ANOMALY = new THREE.Color('#d29922');
-const COLOR_DIM     = new THREE.Color('#334155');
-const COLOR_HUB     = new THREE.Color('#06b6d4');
+const COLOR_HEALTHY = new THREE.Color('#6366f1'); // Indigo
+const COLOR_ANOMALY = new THREE.Color('#f59e0b'); // Amber
+const COLOR_DIM     = new THREE.Color('#94a3b8'); // Slate 400 (visible on dark & light)
+const COLOR_HUB     = new THREE.Color('#a855f7'); // Purple
 
 // ─── Hub ─────────────────────────────────────────────────────────────────────
 
@@ -256,11 +257,11 @@ function StaticFallback({ nodes }: { nodes: NodeDef[] }) {
         aria-hidden="true"
       >
         {/* Hub */}
-        <circle cx="150" cy="150" r="24" fill="#06b6d4" opacity="0.9" />
-        <circle cx="150" cy="150" r="36" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.4" />
+        <circle cx="150" cy="150" r="24" fill="#a855f7" opacity="0.9" />
+        <circle cx="150" cy="150" r="36" fill="none" stroke="#6366f1" strokeWidth="1" opacity="0.4" />
 
         {/* Satellite positions */}
-        {nodes.map((n, i) => {
+        {nodes.map((n) => {
           // Map 3D coordinates [-4, 4] to SVG [0, 300] roughly
           const cx = 150 + (n.position[0] * 35);
           const cy = 150 + (n.position[1] * -35); // Invert Y
@@ -268,17 +269,17 @@ function StaticFallback({ nodes }: { nodes: NodeDef[] }) {
             <g key={n.id}>
               <line
                 x1="150" y1="150" x2={cx} y2={cy}
-                stroke={n.status === 'healthy' ? '#22d3ee' : n.status === 'anomaly' ? '#d29922' : '#334155'}
+                stroke={n.status === 'healthy' ? '#6366f1' : n.status === 'anomaly' ? '#f59e0b' : '#94a3b8'}
                 strokeWidth="0.8"
                 opacity={n.status === 'dim' ? 0.15 : 0.35}
               />
               <circle
                 cx={cx} cy={cy} r="10"
-                fill={n.status === 'healthy' ? '#22d3ee' : n.status === 'anomaly' ? '#d29922' : '#334155'}
+                fill={n.status === 'healthy' ? '#6366f1' : n.status === 'anomaly' ? '#f59e0b' : '#94a3b8'}
                 opacity={n.status === 'dim' ? 0.3 : 0.85}
               />
               {n.status === 'anomaly' && (
-                <circle cx={cx} cy={cy} r="17" fill="none" stroke="#d29922" strokeWidth="1.5" opacity="0.5" />
+                <circle cx={cx} cy={cy} r="17" fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.5" />
               )}
             </g>
           );

@@ -11,6 +11,7 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.email_verification_token import EmailVerificationToken
 from .device import Device
 from app.models.device_telemetry import DeviceTelemetry
+from app.models.security_telemetry import SecurityTelemetry
 from app.models.alert import Alert
 from app.models.device_enrollment_token import DeviceEnrollmentToken
 from app.models.digital_twin import DigitalTwin
@@ -18,3 +19,4 @@ from app.models.device_live_state import DeviceLiveState
 from app.models.device_heartbeat import DeviceHeartbeat
 from app.models.ai_prediction import AIPrediction
 from app.models.threat_event import ThreatEvent
+from app.models.incident import Incident
