@@ -1,0 +1,60 @@
+databases:
+  - name: sentineltwin-db
+    databaseName: sentineltwin
+    user: sentineltwin_user
+    plan: free
+
+services:
+  - type: web
+    name: sentineltwin-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: APP_NAME
+        value: SentinelTwin AI
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sentineltwin-db
+          property: connectionString
+      - key: SECRET_KEY
+        value: krlGYX2WEXstwsSQcu_FLw1acQtFTkEcg8c6mGAzCLU
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: ALGORITHM
+        value: HS256
+      - key: GOOGLE_CLIENT_ID
+        value: 846097722787-4b5p2na8ip25ol7kbj8kr5t60msthn0t.apps.googleusercontent.com
+      - key: CORS_ORIGINS
+        value: http://localhost:5173
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        value: sentinaltwinai@gmail.com
+      - key: SMTP_PASSWORD
+        value: cfvj bjke nuxn tedj
+      - key: SMTP_FROM_EMAIL
+        value: sentinaltwinai@gmail.com
+      - key: SMTP_FROM_NAME
+        value: SentinelTwin AI
+      - key: SMTP_USE_TLS
+        value: "true"
+      - key: EMAIL_VERIFICATION_REQUIRED
+        value: "true"
