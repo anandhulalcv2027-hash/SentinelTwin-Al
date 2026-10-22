@@ -19,7 +19,7 @@ export const AnalyticsPage = () => {
   const { data: devices } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
-      const res = await api.get('/devices');
+      const res = await api.get('/api/v1/devices');
       return res.data.items;
     }
   });
@@ -28,7 +28,7 @@ export const AnalyticsPage = () => {
     queryKey: ['analytics', 'telemetry', deviceId, dateRange],
     queryFn: async () => {
       if (!deviceId || !dateRange?.from || !dateRange?.to) return [];
-      const res = await api.get('/analytics/telemetry', {
+      const res = await api.get('/api/v1/analytics/telemetry', {
         params: {
           device_id: deviceId,
           start_time: dateRange.from.toISOString(),

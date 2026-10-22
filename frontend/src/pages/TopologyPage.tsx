@@ -41,7 +41,7 @@ export const TopologyPage = () => {
   const { data: topologyData, isLoading } = useQuery({
     queryKey: ['topology'],
     queryFn: async () => {
-      const res = await api.get('/analytics/topology');
+      const res = await api.get('/api/v1/analytics/topology');
       return res.data;
     },
     refetchInterval: 30000 // Poll every 30s

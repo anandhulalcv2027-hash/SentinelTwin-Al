@@ -9,6 +9,8 @@ from uuid import UUID
 from app.models.alert import Alert
 from app.models.device import Device
 from app.models.device_telemetry import DeviceTelemetry
+from app.models.incident import Incident, IncidentStatus
+from app.models.enums import ThreatSeverity
 
 
 CPU_THRESHOLD = 90.0
@@ -167,24 +169,52 @@ class AlertService:
             .limit(1)
         )
         
+        is_new = False
         if existing_alert is not None:
+            alert = existing_alert
             if threat_event.risk_score > (existing_alert.metric_value or 0):
                 existing_alert.metric_value = float(threat_event.risk_score)
                 existing_alert.severity = threat_event.severity.value.lower()
                 existing_alert.message = f"Escalated Risk Score: {threat_event.risk_score:.1f}. {threat_event.description}"
-                return existing_alert, False
-            return None, False
+        else:
+            alert = Alert(
+                organization_id=threat_event.organization_id,
+                device_id=threat_event.device_id,
+                alert_type=alert_type,
+                severity=threat_event.severity.value.lower(),
+                title=f"Security Threat: {threat_event.threat_category or 'Correlated Indicators'}",
+                message=f"Risk Score: {threat_event.risk_score:.1f}. {threat_event.description}",
+                metric_value=float(threat_event.risk_score),
+                status="open",
+            )
+            db.add(alert)
+            db.flush()
+            is_new = True
 
-        alert = Alert(
-            organization_id=threat_event.organization_id,
-            device_id=threat_event.device_id,
-            alert_type=alert_type,
-            severity=threat_event.severity.value.lower(),
-            title=f"Security Threat: {threat_event.threat_category or 'Correlated Indicators'}",
-            message=f"Risk Score: {threat_event.risk_score:.1f}. {threat_event.description}",
-            metric_value=float(threat_event.risk_score),
-            status="open",
-        )
-        
-        db.add(alert)
-        return alert, True
+        # Automatically escalate High/Critical threats to Incidents for SOC triage
+        if threat_event.severity in (ThreatSeverity.CRITICAL, ThreatSeverity.HIGH):
+            existing_incident = db.scalar(
+                select(Incident)
+                .where(
+                    Incident.device_id == threat_event.device_id,
+                    Incident.title == alert.title,
+                    Incident.status.in_(["OPEN", "ACKNOWLEDGED", "INVESTIGATING"]),
+                )
+                .limit(1)
+            )
+            if not existing_incident:
+                incident = Incident(
+                    organization_id=threat_event.organization_id,
+                    device_id=threat_event.device_id,
+                    source_alert_id=alert.id,
+                    source_threat_event_id=threat_event.id,
+                    title=alert.title,
+                    description=alert.message,
+                    severity=threat_event.severity.value,
+                    status=IncidentStatus.OPEN.value,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.add(incident)
+
+        return alert, is_new

@@ -41,7 +41,7 @@ export function SOCDashboardPage() {
     const fetchData = () => {
       threatService.getRecentThreats(15).then(res => setRecentThreats(res.items)).catch(console.error);
       incidentService.getIncidents('OPEN').then(res => setIncidents(res)).catch(console.error);
-      api.get('/alerts/?status=open').then(res => setAlerts(res.data)).catch(console.error);
+      api.get('/api/v1/alerts').then(res => setAlerts(res.data?.items || res.data || [])).catch(console.error);
       
       deviceService.getDevices().then(res => {
         setDevices(res.items);
