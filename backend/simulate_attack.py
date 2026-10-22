@@ -1,3 +1,14 @@
+import os
+import sys
+import subprocess
+
+# Auto-detect project virtual environment and re-exec if running under global python
+script_dir = os.path.dirname(os.path.abspath(__file__))
+venv_python = os.path.join(script_dir, ".venv", "Scripts", "python.exe")
+if os.path.exists(venv_python) and os.path.normcase(sys.executable) != os.path.normcase(venv_python):
+    result = subprocess.run([venv_python] + sys.argv)
+    sys.exit(result.returncode)
+
 import time
 import uuid
 import requests
