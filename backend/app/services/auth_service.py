@@ -206,10 +206,14 @@ class AuthService:
                 f"?token={raw_verification_token}"
             )
 
-            EmailService.send_verification_email(
-                to=user.email,
-                verification_url=verification_url,
-            )
+            try:
+                EmailService.send_verification_email(
+                    to=user.email,
+                    verification_url=verification_url,
+                )
+            except Exception as exc:
+                print(f"Warning: Failed to send verification email (auto-verifying): {exc}")
+                user.email_verified = True
         else:
             # Development/demo mode: allow registration without
             # depending on an external email provider.

@@ -39,7 +39,9 @@ services:
       - key: GOOGLE_CLIENT_ID
         value: 846097722787-4b5p2na8ip25ol7kbj8kr5t60msthn0t.apps.googleusercontent.com
       - key: CORS_ORIGINS
-        value: http://localhost:5173
+        value: https://sentinel-twin-al-m9bc.vercel.app,http://localhost:5173
+      - key: FRONTEND_URL
+        value: https://sentinel-twin-al-m9bc.vercel.app
       - key: EMAIL_PROVIDER
         value: smtp
       - key: SMTP_HOST
@@ -57,4 +59,5 @@ services:
       - key: SMTP_USE_TLS
         value: "true"
       - key: EMAIL_VERIFICATION_REQUIRED
-        value: "true"
+        value: "false"
+
