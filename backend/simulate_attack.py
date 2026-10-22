@@ -119,41 +119,73 @@ def simulate_healthy_baseline(device_id: str, token: str):
         send_telemetry(device_id, token, cpu=12.5, memory=42.0, disk=45.0, net_sent=250000, net_recv=500000, active_connections=20, failed_logins=0)
         time.sleep(2)
 
-def simulate_passive_exfiltration(device_id: str, token: str):
-    print("\n--- PHASE 2: PASSIVE ATTACK: Stealth Data Exfiltration & Network Scanning ---")
-    print("Simulating stealth port scanning and covert 250MB outbound data exfiltration...")
-    for i in range(4):
+def simulate_stealth_exfiltration(device_id: str, token: str):
+    print("\n--- ATTACK: Stealth Data Exfiltration ---")
+    print("Simulating covert 220MB outbound egress to external servers with normal 18% CPU...")
+    for i in range(3):
         send_telemetry(
             device_id, token,
-            cpu=22.0, # Normal CPU so it evades traditional threshold alerts
-            memory=52.0,
+            cpu=18.5,
+            memory=48.0,
+            disk=50.0,
+            net_sent=180000000 + (i * 20000000), # 180MB - 220MB outbound
+            net_recv=8000000,
+            active_connections=35,
+            failed_logins=0
+        )
+        time.sleep(2)
+
+def simulate_port_scan(device_id: str, token: str):
+    print("\n--- ATTACK: Stealth Network Reconnaissance & Port Scanning ---")
+    print("Simulating surge in active socket connections (220+ connections)...")
+    for _ in range(3):
+        send_telemetry(
+            device_id, token,
+            cpu=15.0,
+            memory=44.0,
             disk=48.0,
-            net_sent=150000000 + (i * 25000000), # 150MB+ outgoing traffic (exfiltration!)
-            net_recv=10000000,
-            active_connections=185, # anomalous spike in remote sockets
+            net_sent=1500000,
+            net_recv=3000000,
+            active_connections=225, # Anomaly socket spike
             failed_logins=0
         )
         time.sleep(2)
 
 def simulate_passive_bruteforce(device_id: str, token: str):
-    print("\n--- PHASE 3: PASSIVE ATTACK: Credential Stuffing / Brute-Force ---")
-    print("Simulating multiple failed authentication attempts...")
+    print("\n--- ATTACK: Credential Stuffing / Brute-Force Auth ---")
+    print("Simulating repeated failed authentication bursts (18 to 26 failed logins)...")
     for i in range(3):
         send_telemetry(
             device_id, token,
-            cpu=18.0,
-            memory=48.0,
-            disk=46.0,
+            cpu=16.0,
+            memory=46.0,
+            disk=48.0,
             net_sent=500000,
             net_recv=800000,
-            active_connections=45,
-            failed_logins=12 + (i * 4) # High failed logins trigger
+            active_connections=40,
+            failed_logins=18 + (i * 4) # High failed logins trigger
+        )
+        time.sleep(2)
+
+def simulate_stealth_memory_injection(device_id: str, token: str):
+    print("\n--- ATTACK: Slow-Burn Memory Leak / Fileless Injection ---")
+    print("Simulating stealth memory exhaustion (93.5% RAM) while keeping CPU low (12%)...")
+    for _ in range(3):
+        send_telemetry(
+            device_id, token,
+            cpu=12.0, # Normal CPU to evade threshold alerts
+            memory=94.5, # Critically high memory
+            disk=50.0,
+            net_sent=800000,
+            net_recv=1200000,
+            active_connections=30,
+            failed_logins=0
         )
         time.sleep(2)
 
 def simulate_active_ransomware(device_id: str, token: str):
-    print("\n--- PHASE 4: ACTIVE ATTACK: High-Intensity Ransomware / Miner ---")
-    print("Simulating high CPU and Memory encryption activity...")
+    print("\n--- ATTACK: High-Intensity Ransomware / Cryptominer ---")
+    print("Simulating high CPU and Memory encryption activity (98% CPU, 94% RAM)...")
     for _ in range(3):
         send_telemetry(
             device_id, token,
@@ -175,27 +207,41 @@ def main():
     if not device_id:
         return
 
-    print("\nSelect simulation mode:")
-    print("1. Run Passive Attacks (Data Exfiltration & Brute-Force)")
-    print("2. Run Active Attack (Ransomware / Cryptominer)")
-    print("3. Run Full Simulation (Baseline -> Passive Attacks -> Active Attack)")
+    print("\nSelect attack scenario to simulate:")
+    print("1. Stealth Data Exfiltration (Covert 200MB+ egress with normal 18% CPU)")
+    print("2. Reconnaissance & Port Scanning (Anomalous spike in active sockets)")
+    print("3. Credential Stuffing / Brute-Force (Burst of failed logins)")
+    print("4. Slow-Burn Memory Injection / Leak (94% RAM consumption with low CPU)")
+    print("5. Full Passive APT Campaign (Recon -> Brute-Force -> Exfiltration)")
+    print("6. Active Ransomware / Cryptominer Spike (98% CPU + 94% RAM)")
     
-    choice = input("\nEnter choice [1, 2, or 3] (default 3): ").strip()
+    choice = input("\nEnter choice [1-6] (default 1): ").strip()
     if not choice:
-        choice = "3"
+        choice = "1"
         
     if choice == "1":
         simulate_healthy_baseline(device_id, token)
-        simulate_passive_exfiltration(device_id, token)
-        simulate_passive_bruteforce(device_id, token)
+        simulate_stealth_exfiltration(device_id, token)
     elif choice == "2":
+        simulate_healthy_baseline(device_id, token)
+        simulate_port_scan(device_id, token)
+    elif choice == "3":
+        simulate_healthy_baseline(device_id, token)
+        simulate_passive_bruteforce(device_id, token)
+    elif choice == "4":
+        simulate_healthy_baseline(device_id, token)
+        simulate_stealth_memory_injection(device_id, token)
+    elif choice == "5":
+        simulate_healthy_baseline(device_id, token)
+        simulate_port_scan(device_id, token)
+        simulate_passive_bruteforce(device_id, token)
+        simulate_stealth_exfiltration(device_id, token)
+    elif choice == "6":
         simulate_healthy_baseline(device_id, token)
         simulate_active_ransomware(device_id, token)
     else:
         simulate_healthy_baseline(device_id, token)
-        simulate_passive_exfiltration(device_id, token)
-        simulate_passive_bruteforce(device_id, token)
-        simulate_active_ransomware(device_id, token)
+        simulate_stealth_exfiltration(device_id, token)
 
     print("\n==================================================")
     print("Simulation complete!")
