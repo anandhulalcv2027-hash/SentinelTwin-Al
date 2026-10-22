@@ -131,7 +131,10 @@ class DeviceTelemetryRequest(BaseModel):
         ge=0,
     )
 
-
+    failed_logins: int = Field(
+        default=0,
+        ge=0,
+    )
 
     agent_version: str = Field(
         min_length=1,

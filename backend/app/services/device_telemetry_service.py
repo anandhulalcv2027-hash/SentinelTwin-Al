@@ -66,7 +66,7 @@ class DeviceTelemetryService:
             network_bytes_recv=request.network_bytes_recv,
             active_connections=request.active_connections,
             process_count=request.process_count,
-            failed_logins=request.failed_logins,
+            failed_logins=getattr(request, "failed_logins", 0) or 0,
             agent_version=request.agent_version,
             collected_at=datetime.now(timezone.utc),
         )
